@@ -53,6 +53,13 @@ class Profile(BaseModel):
         encoded = json.dumps(self.model_dump(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode()).hexdigest()
 
+    def require_cloud_duration(self) -> None:
+        # Idle experiments include the separately bounded real pause/resume interval.
+        if self.scenario != "idle" and self.duration < 60:
+            raise ValueError(
+                "Azure Monitor requires a cloud workload window of at least 60 seconds"
+            )
+
     def rate_at(self, elapsed: float) -> float:
         if elapsed >= self.duration:
             return 0

@@ -306,6 +306,9 @@ def run(
     reset_provenance: dict[str, Any] | None = None,
     comparison_baseline: dict[str, Any] | None = None,
 ) -> Path:
+    collect_cloud = collect_cloud or bool(os.environ.get("CONTAINER_APP_JOB_NAME"))
+    if collect_cloud:
+        profile.require_cloud_duration()
     host = client.origin(host)
     deployment = client.metadata(host)
     controlled = profile.scenario in {"storm", "slow", "idle", "cache"} or idle_after
@@ -333,7 +336,6 @@ def run(
     if (directory / "manifest.json").exists():
         raise FileExistsError("Run directory already contains a manifest; refusing to overwrite")
     initialize(directory)
-    collect_cloud = collect_cloud or bool(os.environ.get("CONTAINER_APP_JOB_NAME"))
     config = (
         read_json(config_path)
         if config_path

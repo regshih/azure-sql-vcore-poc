@@ -6,6 +6,10 @@ Document changes here without customer identifiers or fabricated measurements.
 
 ### Fixed
 
+- Retrieve live Container Apps receipt logs as text to preserve nested JSON
+  payloads; historical structured receipt parsing remains supported.
+- Use a 90-second smoke profile and reject cloud workloads below Azure Monitor's
+  60-second minimum query window before launching traffic or cloud operations.
 - Supply explicit zero offsets for bounded Azure Blob readback and operator
   downloads; regression coverage exercises the real SDK range validation.
 - Map runtime and observer contained SQL users to managed-identity client IDs,

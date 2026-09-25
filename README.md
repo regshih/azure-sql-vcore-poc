@@ -178,6 +178,10 @@ Smoke verification requires successful SQL-backed business requests, cloud
 evidence collection and job-side SHA-256 readback of the complete private Blob
 archive. A successful job status or `/healthz` response alone is insufficient.
 Independent operator download remains a separate verification step.
+The smoke workload runs for 90 seconds. Cloud collection rejects durations below
+60 seconds because Azure Monitor rejects subminute metric query windows; local
+HTTP-only smoke can still explicitly use a shorter duration. Collection and
+private archive verification add time after the workload.
 
 Deployment generates an internal-control bearer token in an ephemeral OS-temporary
 ARM parameter file, deletes that file even on failure, and stores the token only

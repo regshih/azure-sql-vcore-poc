@@ -457,7 +457,7 @@ def test_runner_archives_failed_cloud_collection_and_seals_failure_manifest(work
     monkeypatch.setattr(runner, "collect", fail_collect)
     with pytest.raises(cloud.CollectionError):
         runner.run(
-            load_profile("smoke", duration=1),
+            load_profile("smoke", duration=60),
             "http://localhost",
             output=workdir / "run",
             collect_cloud=True,

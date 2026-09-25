@@ -50,7 +50,7 @@ def job():
 def test_template_preserves_entire_existing_container_except_command_arguments():
     original = job()
     snapshot = copy.deepcopy(original)
-    profile = load_profile("peak", duration=30, users=3, rate=5)
+    profile = load_profile("peak", duration=60, users=3, rate=5)
     template = cloud_job.execution_template(
         original, profile, "https://example.invalid", "syntheticevidence", False
     )
@@ -148,7 +148,7 @@ def test_both_cloud_entrypoints_initialize_sdk_collect_and_archive(
 
     monkeypatch.setattr(runner, "invoke_locust", workload)
     directory = workdir / "run"
-    profile = load_profile(profile_name, duration=1, product_count=24)
+    profile = load_profile(profile_name, duration=60, product_count=24)
 
     def execute():
         if entrypoint == "default-job":
@@ -157,7 +157,7 @@ def test_both_cloud_entrypoints_initialize_sdk_collect_and_archive(
                     "--profile",
                     profile_name,
                     "--duration",
-                    "1",
+                    "60",
                     "--product-count",
                     "24",
                     "--output",
@@ -326,6 +326,32 @@ def test_public_smoke_helper_requires_exact_execution_and_remote_archive_proof(
     assert read_json(workdir / "smoke-verification.json") == report
 
 
+@pytest.mark.parametrize("duration", [1, 15, 59.999])
+def test_subminute_cloud_runs_fail_before_control_plane_or_workload_calls(
+    workdir, monkeypatch, duration
+):
+    profile = load_profile("smoke", duration=duration)
+    cli, _ = fake_cli(workdir)
+    metadata = Mock(side_effect=AssertionError("No API request before duration validation"))
+    monkeypatch.setattr(runner.client, "metadata", metadata)
+    with pytest.raises(ValueError, match="at least 60 seconds"):
+        cloud_job.launch(cli, profile, confirm_poc=True)
+    assert cli.calls == []
+    cli.require_poc.assert_not_called()
+    with pytest.raises(ValueError, match="at least 60 seconds"):
+        cloud_job.runner_arguments(profile, "https://example.invalid", False)
+    with pytest.raises(ValueError, match="at least 60 seconds"):
+        runner.run(profile, "https://example.invalid", collect_cloud=True)
+    metadata.assert_not_called()
+
+
+def test_default_smoke_and_exact_minute_fit_monitor_window():
+    assert load_profile("smoke").duration == 90
+    profile = load_profile("smoke", duration=60)
+    arguments = cloud_job.runner_arguments(profile, "https://example.invalid", False)
+    assert arguments[arguments.index("--duration") + 1] == "60.0"
+
+
 def test_generic_smoke_launcher_also_rejects_empty_workload(workdir, monkeypatch):
     cli, _ = fake_cli(workdir)
     receipt = verified_receipt()
@@ -381,7 +407,10 @@ def test_no_execution_name_never_guesses_from_latest_execution(workdir, monkeypa
     assert state.polls == 0
 
 
-def test_receipt_logs_request_exact_execution_and_parse_only_verified_shape(workdir, monkeypatch):
+@pytest.mark.parametrize("formatting", ["text", "json"])
+def test_receipt_logs_request_exact_execution_and_parse_only_verified_shape(
+    workdir, monkeypatch, formatting
+):
     cli, _ = fake_cli(workdir)
     digest = "a" * 64
     prefix = "runs/run-20260925T060000Z-" + "b" * 12 + "/" + digest[:16]
@@ -393,15 +422,18 @@ def test_receipt_logs_request_exact_execution_and_parse_only_verified_shape(work
         "artifact_count": 12,
         "total_bytes": 70,
     }
-    execute = Mock(
-        return_value=subprocess.CompletedProcess(
-            [], 0, json.dumps({"Log": "POC_EVIDENCE_UPLOAD " + json.dumps(receipt)})
-        )
+    message = "POC_EVIDENCE_UPLOAD " + json.dumps(receipt)
+    output = (
+        "2026-09-25T06:00:00Z stdout F " + message
+        if formatting == "text"
+        else json.dumps({"Log": message})
     )
+    execute = Mock(return_value=subprocess.CompletedProcess([], 0, output))
     monkeypatch.setattr(cloud_job.subprocess, "run", execute)
     assert cloud_job.receipt_logs(cli, "runner-selected") == [receipt]
     args = execute.call_args.args[0]
     assert args[args.index("--execution") + 1] == "runner-selected"
+    assert args[args.index("--format") + 1] == "text"
 
 
 def test_in_job_mode_uses_env_and_same_runner_not_another_job(workdir, monkeypatch):
@@ -409,7 +441,7 @@ def test_in_job_mode_uses_env_and_same_runner_not_another_job(workdir, monkeypat
     monkeypatch.setenv("EVIDENCE_STORAGE_ACCOUNT", "syntheticevidence")
     main = Mock(return_value=0)
     monkeypatch.setattr("src.experiments.runner.main", main)
-    assert cloud_job.main(["--profile", "peak", "--users", "3", "--duration", "30"]) == 0
+    assert cloud_job.main(["--profile", "peak", "--users", "3", "--duration", "60"]) == 0
     args = main.call_args.args[0]
     assert args[:2] == ["--profile", "peak"]
     assert args[args.index("--host") + 1] == "https://example.invalid"

@@ -1,7 +1,7 @@
 name: smoke
 users: 2
 spawn_rate: 2
-duration: 15
+duration: 90
 rate: 2
 product_count: 24
 write_ratio: 0.05

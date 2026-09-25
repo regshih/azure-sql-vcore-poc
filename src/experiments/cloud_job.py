@@ -32,6 +32,7 @@ RAW = ROOT / "results" / "local-untracked-runs"
 
 def runner_arguments(profile: Profile, host: str, allow_unsafe: bool) -> list[str]:
     """Both launch paths enter runner.main, which owns environment/SDK initialization."""
+    profile.require_cloud_duration()
     args = [
         "-m",
         "src.experiments.runner",
@@ -127,7 +128,7 @@ def _stream_receipts(cli: AzureCLI, execution_name: str) -> list[dict[str, Any]]
         "--container",
         "runner",
         "--format",
-        "json",
+        "text",
         "--tail",
         "300",
         "--subscription",
@@ -361,6 +362,7 @@ def launch(
 ) -> list[dict[str, Any]]:
     if not confirm_poc:
         raise OperationError("Cloud workload execution requires --confirm-poc")
+    profile.require_cloud_duration()
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,99}", cli.config.runner_job):
         raise OperationError("Invalid or missing runner job name")
     host = origin(cli.config.app_url)

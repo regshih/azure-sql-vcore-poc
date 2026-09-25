@@ -165,6 +165,15 @@ safe prefix, full manifest SHA-256, count, bounded workload-verification fields
 and job-side readback proof—not artifact contents. Verify that full manifest hash,
 then the complete file inventory; prefix/count alone is insufficient. Receipt
 logs do not replace the full private artifact set.
+The operator requests text-formatted Container Apps live logs so JSON receipt
+payloads are not corrupted by unescaped nested quotes in the CLI JSON wrapper.
+Historical Log Analytics responses retain their normal structured JSON parsing.
+Normal cloud workload windows must be at least 60 seconds; the default smoke is 90 seconds.
+The runner rejects shorter cloud durations before issuing traffic instead of
+expanding the metrics window to include unrelated activity or retrying an invalid
+Monitor request. Local HTTP-only runs may still use shorter explicit durations.
+Idle/resume experiments instead include their separately bounded real pause interval;
+their short post-resume traffic duration is not the whole collection window.
 Raw metrics/configuration/request files can contain environment metadata and
 must not be printed or published simply because the data model is synthetic.
 An ordinary smoke run without approved internal-token access can lack protected

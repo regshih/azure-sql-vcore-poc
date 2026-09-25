@@ -88,7 +88,7 @@ def test_cloud_smoke_requires_business_success_and_archives_final_failure(
     monkeypatch.setattr(runner, "invoke_locust", workload)
     if successful:
         runner.run(
-            load_profile("smoke", duration=1),
+            load_profile("smoke", duration=60),
             "http://localhost",
             output=workdir / "run",
             collect_cloud=True,
@@ -96,7 +96,7 @@ def test_cloud_smoke_requires_business_success_and_archives_final_failure(
     else:
         with pytest.raises(RuntimeError, match="no successful SQL-backed business"):
             runner.run(
-                load_profile("smoke", duration=1),
+                load_profile("smoke", duration=60),
                 "http://localhost",
                 output=workdir / "run",
                 collect_cloud=True,
