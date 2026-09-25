@@ -140,6 +140,9 @@ manifest and verify actual length/SHA-256—not merely trust uploaded hash
 metadata. The receipt's `verification.method=blob-readback-sha256` records that
 job-side check. This is **not independent operator retrieval**:
 `operator_download_verified` remains false until the separate download workflow.
+Bounded reads explicitly begin at byte zero, as required by the Blob SDK when
+supplying a length; upload readback and operator downloads both verify the full
+content rather than only stored hash metadata.
 
 To retry persistence of an existing approved raw bundle without rerunning the
 workload:

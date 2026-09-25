@@ -6,6 +6,8 @@ Document changes here without customer identifiers or fabricated measurements.
 
 ### Fixed
 
+- Supply explicit zero offsets for bounded Azure Blob readback and operator
+  downloads; regression coverage exercises the real SDK range validation.
 - Map runtime and observer contained SQL users to managed-identity client IDs,
   while retaining object IDs for Azure RBAC and server administration.
 - Configure only the documented Container Apps workload-profile platform CIDRs

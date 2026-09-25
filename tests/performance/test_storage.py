@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from azure.core.exceptions import ResourceExistsError
+from azure.storage.blob import BlobClient
 
 from src.experiments import storage
 from src.experiments.common import read_json, write_json
@@ -47,6 +48,7 @@ def blob_store(monkeypatch):
             return SimpleNamespace(size=len(data), metadata=metadata)
 
         def download(**kwargs):
+            assert kwargs["offset"] == 0
             state.downloads.append(blob)
             if state.denied_read and blob.endswith(state.denied_read):
                 raise OSError("read permission denied")
@@ -237,6 +239,43 @@ def test_download_verifies_every_artifact_and_preserves_private_status(workdir, 
     assert verified["artifacts"] == receipt["artifacts"]
     assert verified["manifest_sha256"] == receipt["manifest_sha256"]
     assert storage.upload(target, settings)["manifest_sha256"] == receipt["manifest_sha256"]
+
+
+def test_upload_and_download_use_real_sdk_range_validation(workdir, blob_store, monkeypatch):
+    from azure.storage.blob import _blob_client
+
+    run = raw_run(workdir)
+    settings = storage.StorageSettings("syntheticevidence")
+    service = blob_store.factory.return_value
+    original = service.get_blob_client.side_effect
+    checked = []
+
+    def get_blob(container=None, blob=None):
+        client = original(container, blob)
+        mocked_download = client.download_blob.side_effect
+
+        def download(**kwargs):
+            result = mocked_download(**kwargs)
+            with monkeypatch.context() as context:
+                downloader = MagicMock(return_value=result)
+                context.setattr(_blob_client, "StorageStreamDownloader", downloader)
+                with BlobClient("https://example.invalid", container, blob) as sdk:
+                    response = sdk.download_blob(**kwargs)
+                downloader.assert_called_once()
+                assert downloader.call_args.kwargs["start_range"] == 0
+                assert downloader.call_args.kwargs["end_range"] == kwargs["length"] - 1
+                checked.append(blob)
+                return response
+
+        client.download_blob.side_effect = download
+        return client
+
+    service.get_blob_client.side_effect = get_blob
+    receipt = storage.upload(run, settings)
+    storage.download(
+        workdir / "sdk-retrieved", settings, receipt["blob_prefix"], receipt["manifest_sha256"]
+    )
+    assert len(checked) == 2 * (receipt["artifact_count"] + 1)
 
 
 def test_operator_cli_refuses_private_download_outside_ignored_results(workdir, monkeypatch):

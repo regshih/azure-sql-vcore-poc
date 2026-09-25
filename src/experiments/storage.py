@@ -170,7 +170,7 @@ def _readback(
     content = bytearray()
     if size:
         for chunk in blob.download_blob(
-            length=size + 1, max_concurrency=2, timeout=120, logging_enable=False
+            offset=0, length=size + 1, max_concurrency=2, timeout=120, logging_enable=False
         ).chunks():
             count += len(chunk)
             if count > size or time.monotonic() >= deadline:
@@ -392,7 +392,7 @@ def download(
         if marker_properties.size > MAX_MANIFEST_BYTES:
             raise ValueError("Archive manifest exceeds the download bound")
         encoded = marker.download_blob(
-            length=MAX_MANIFEST_BYTES + 1, logging_enable=False
+            offset=0, length=MAX_MANIFEST_BYTES + 1, logging_enable=False
         ).readall()
         if hashlib.sha256(encoded).hexdigest() != expected_manifest_hash:
             raise ValueError("Archive manifest hash does not match the upload receipt")
@@ -437,6 +437,7 @@ def download(
                 with path.open("xb") as stream:
                     if record["bytes"]:
                         blob.download_blob(
+                            offset=0,
                             length=record["bytes"] + 1,
                             max_concurrency=2,
                             timeout=120,
