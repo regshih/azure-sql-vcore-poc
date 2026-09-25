@@ -123,17 +123,18 @@ def deploy(cli: AzureCLI, config_path: Path, *, what_if_only: bool) -> None:
         config.sql_auto_pause_delay,
     )
     template = ROOT / "infra" / "bicep" / "main.bicep"
+    compiled_template = cli.output / "compiled-template.json"
     cli.run(
         "bicep",
         "build",
         "--file",
         str(template),
         "--outfile",
-        str(cli.output / "compiled-template.json"),
+        str(compiled_template),
     )
     cli.run("bicep", "lint", "--file", str(template))
     for application in (False, True):
-        result = deploy_phase(cli, template, application, what_if_only=what_if_only)
+        result = deploy_phase(cli, compiled_template, application, what_if_only=what_if_only)
         if what_if_only:
             return
         outputs = result["properties"]["outputs"]["deployment"]["value"]

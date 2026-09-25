@@ -107,6 +107,9 @@ The operations CLI accepts an **ignored JSON file** and rejects unknown keys.
 Azure subprocesses have closed standard input, and ARM deployment commands
 disable missing-parameter prompts. Supply required values in the local
 configuration; unattended execution must fail explicitly rather than wait for input.
+The CLI compiles Bicep once, lints the source, and sends that same compiled ARM
+template to validation, preview and deployment. This also avoids nested Bicep
+compilation inside each captured Azure CLI deployment subprocess.
 Do not point it at a public example file. A minimal starting shape for the secure
 provisioned baseline is shown below; replace placeholders only in the private
 copy. It is deliberately not executable as published.

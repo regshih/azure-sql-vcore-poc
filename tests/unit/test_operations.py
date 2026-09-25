@@ -300,6 +300,23 @@ def test_azure_cli_does_not_inherit_interactive_input(
     assert execute.call_args.kwargs["stdin"] == subprocess.DEVNULL
 
 
+def test_deployment_uses_the_compiled_and_linted_template(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    runner = Mock(config=configuration(), output=tmp_path)
+    runner.run.return_value = False
+    monkeypatch.setattr(cli, "check_capabilities", Mock())
+    phase = Mock()
+    monkeypatch.setattr(cli, "deploy_phase", phase)
+    cli.deploy(runner, tmp_path / "synthetic.local.json", what_if_only=True)
+    compiled = tmp_path / "compiled-template.json"
+    phase.assert_called_once_with(runner, compiled, False, what_if_only=True)
+    build = next(
+        call.args for call in runner.run.call_args_list if call.args[:2] == ("bicep", "build")
+    )
+    assert build[build.index("--outfile") + 1] == str(compiled)
+
+
 @pytest.mark.parametrize("fail", [False, True])
 def test_deploy_token_is_ephemeral_and_redacted(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fail: bool
