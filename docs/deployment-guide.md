@@ -158,7 +158,7 @@ cost approval; it is not an undocumented CLI switch.
 | `enable_business_critical` | `false`; provisioned-only Business Critical extension | Validate actual regional BC capability, approved requirement/cost and a separate experiment; the standard matrix remains GP-only |
 | `enable_legacy_redis` | `false`; private Standard C1 Redis 6 compatibility resource | Verify current customer creation eligibility/retirement, private endpoint and runtime Entra data-access policy; no access keys |
 | `enable_sql_diagnostics` | `false`; selected SQL diagnostic log/metric export | Review supported Errors/Timeouts/Blocks/Deadlocks categories, ingestion cost, retention and actual workspace schema |
-| `enable_alerts` | Disabled paging; 14 signal definitions with conditional serverless rule | Requires private `alert_action_group_ids`, non-TBD `alert_owner`, HTTPS `alert_runbook_base_url`, verified queries and noise/routing review |
+| `enable_alerts` | `false`; metric/activity rules disabled, three log-alert resources omitted; all 14 definitions retained in source with conditional serverless rule | Requires actual required tables ingested, private `alert_action_group_ids`, non-TBD `alert_owner`, HTTPS `alert_runbook_base_url`, verified queries and noise/routing review |
 
 These extension defaults and cache size/version choices are a **POC assumption,
 not a confirmed customer requirement.** Enabling a configuration flag does not
@@ -168,7 +168,9 @@ No optional extension deployment or effectiveness is asserted by this guide.
 Use `alert_thresholds` only with the supported keys in the
 [alerting guide](alerting-guide.md#threshold-configuration-keys). Defaults are
 starting assumptions, not customer SLOs; skipped query validation is not proof
-that ingestion or paging works.
+that ingestion or paging works. Disabled scheduled-query resources can still
+execute/validate queries during creation despite `skipQueryValidation=true`.
+Their resource creation is therefore opt-in, not merely their paging state.
 
 Verify privately:
 
@@ -182,16 +184,18 @@ Verify privately:
 - Runner-managed identity can persist the full raw artifact inventory to the
   private Blob container; verify the upload receipt/hashes, not only job logs.
 - The selected execution image satisfies each requested workflow: the baseline
-  Python image has no Azure CLI. HTTP workloads, managed-identity REST monitoring
-  and SDK Blob persistence do not need it. Operator/config-based collection,
-  matrix and management-plane idle paths still need an authorized CLI-equipped
-  environment; do not interpret missing tools as complete telemetry.
+  Python image has no Azure CLI. HTTP workloads, MI REST/read-only SQL-observer
+  collection and SDK Blob persistence do not need it. An operator using Azure
+  CLI credentials, matrix and management-plane idle paths still need an
+  authorized CLI-equipped environment; missing tools are not complete telemetry.
 - Runner monitoring environment uses `SQL_RESOURCE_ID` for the database ARM ID,
   `AZURE_SUBSCRIPTION_ID`, `LOG_ANALYTICS_WORKSPACE_ID` for the workspace customer
   GUID, and `AZURE_CLIENT_ID` for the runner identity client GUID. Verify SQL
   resource Reader and workspace Log Analytics Reader grants separately from
-  Blob data rights. No direct SQL diagnostic/admin grant is required by the
-  [REST collector](evidence-guide.md#cli-free-cloud-monitoring-collector).
+  Blob data rights. The post-workload SQL observer also needs separately
+  provisioned contained `CONNECT` and `VIEW DATABASE STATE`, ODBC 18 and private
+  SQL connectivity. It has no application-table/schema/write/admin grants.
+  See the [collector contract](evidence-guide.md#cli-free-cloud-monitoring-collector).
 - Rebuild the approved image and apply current environment/role wiring before
   validating REST collection. Verify the deployed job image/revision rather
   than assuming source changes altered a previously deployed container.
@@ -203,6 +207,26 @@ use the [private cloud execution contract](workload-guide.md#private-cloud-execu
 Azure CLI without requiring workstation-to-private-API connectivity. It does not
 mutate the persistent job template. Exact execution success and upload receipt
 retrieval must be followed by independent private Blob download/hash verification.
+
+### Verified deployment smoke
+
+Deployment and the explicit smoke operation share `launch_smoke`. It waits for
+the exact submitted execution and requires SQL-backed business-request success,
+matching smoke profile/run evidence, successful required collection and
+managed-identity readback SHA-256/length verification of every raw blob plus
+the completion archive manifest. A completed job or receipt alone is insufficient.
+
+```powershell
+.\.venv\Scripts\python.exe -m src.operations.cli smoke --config <local-config-path> --confirm-poc
+```
+
+The private `smoke-verification.json` distinguishes
+`archive_verification=runner-readback-confirmed` from
+`operator_blob_download_verified=false`. Job-side verification is not independent
+operator download. Preserve that distinction until the separate private retrieval
+workflow succeeds. The Python helper accepts an optional duration; do not invent
+a `--duration` switch for the operations smoke CLI.
+Live SQL-backed verified smoke: **Not demonstrated by this POC run.**
 
 To rerun the initialization job after reviewing migration/seed replay behavior:
 
@@ -315,6 +339,12 @@ configuration and verify it. For an original provisioned 2-vCore baseline:
 Use the **recorded original** capacity instead if different. Restore every other changed setting: tuning, cache,
 unsafe-test features, network exposure, replica configuration, and diagnostic
 pollers. The manifest must show both requested and observed configurations.
+The matrix and slow-query comparison enforce a narrower automatic restoration
+envelope: original GP Gen5 2/4-vCore SKUs with known serverless minimum/pause
+when applicable. They reject unsupported/unknown originals before mutations.
+After cleanup they verify full SKU, maximum size, zone/read scale, license and
+backup redundancy, not capacity alone. See
+[original-state guards](test-matrix.md#original-settings-and-restoration).
 
 ## Evidence and cleanup
 
@@ -350,6 +380,8 @@ download accepts `--output` (alias of `--run-dir`) as its new destination; it mu
 not already exist. Exact `--download-prefix` is an alternative to `--run-id`,
 not a second simultaneous selector. `POC_EVIDENCE` contains file/hash receipts
 only—no raw or sanitized artifact payloads.
+Automatic job-side blob readback verification occurs before the completion receipt;
+this independent operator download remains a separate verification boundary.
 
 Before deleting, confirm the exact disposable scope and preserve verified full
 raw evidence under the approved private retention policy, with reviewed
@@ -383,6 +415,17 @@ to remove the original database.
 | Readiness fails but health passes | Database path, rights, timeout, serverless state; health is process-only |
 | Unsupported SQL configuration | Current regional capabilities; fail explicitly rather than silent substitution |
 | No metrics | Correct resource/window/destination, diagnostic categories, ingestion delay, table schema |
+| `ManagedEnvironmentCapacityHeavyUsageError` | Regional Container Apps capacity; preserve the failed deployment's partial inventory/cost, review another region and new disposable scope only with explicit approval |
+| Scheduled-query rule creation fails against missing tables | Actual ingestion/schema/query prerequisites; leave log-alert resource creation off rather than relying on disabled state or skipped validation |
+
+A failed deployment is not automatically rolled back. SQL, storage, identities,
+networking or registry resources may already exist and remain billable even
+when Container Apps creation fails. Preserve private operation evidence and
+inventory every original and replacement scope. A separately approved regional
+retry must not overwrite the original configuration or imply the first resources
+were deleted. Track budget, owner and explicit cleanup separately for each.
+Region changes require fresh capability/cost/network review and do not create a
+fair cross-region performance comparison.
 
 Product behavior references: [private endpoints](https://learn.microsoft.com/azure/azure-sql/database/private-endpoint-overview),
 [Entra authentication](https://learn.microsoft.com/azure/azure-sql/database/authentication-aad-overview),

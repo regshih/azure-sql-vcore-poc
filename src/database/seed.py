@@ -1,5 +1,5 @@
 import random
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -72,7 +72,7 @@ def seed_database(
     prices = {int(product["id"]): int(product["unit_price_cents"]) for product in product_rows}
     consumption: dict[int, int] = {}
     with engine.begin() as connection:
-        lock = connection.execute(
+        lock: int = connection.execute(
             text(
                 "SET NOCOUNT ON; DECLARE @r int; EXEC @r=sys.sp_getapplock "
                 "@Resource='poc-seed',@LockMode='Exclusive',@LockOwner='Transaction',"
@@ -81,7 +81,7 @@ def seed_database(
         ).scalar_one()
         if int(lock) < 0:
             raise ValueError("Unable to acquire seed lock.")
-        existing = (
+        existing: Sequence[str] = (
             connection.execute(text("SELECT version FROM dbo.DatasetVersions")).scalars().all()
         )
         previous_version = None
@@ -110,7 +110,7 @@ def seed_database(
             )
             if entry["version"] != previous_version:
                 raise ValueError("Dataset ledger does not match the synthetic generator.")
-            foreign_products = connection.execute(
+            foreign_products: int = connection.execute(
                 text(
                     "SELECT COUNT_BIG(*) FROM dbo.Products "
                     "WHERE sku NOT LIKE 'SYN-%' OR name NOT LIKE 'Synthetic product %'"

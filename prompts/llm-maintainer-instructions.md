@@ -67,11 +67,22 @@ than invented paths, flags or APIs.
   they never switch/provision providers. Preserve latest-version restoration.
 - Maintain provisioned 2→4→original and first-class C1/C2. Validate exact current
   serverless capabilities; no unsupported hard-coded fallback.
+  Fresh observed tuning is the default; an optional original-tuning assertion
+  must match and is required if observation is null. Reject mismatches and
+  unsupported original GP Gen5 2/4 restoration settings before mutations.
+  Unknown serverless minimum/pause fails preflight, never falls back to 2.
+  Verify restored full SKU/maxSize/zone/readScale/license/backup redundancy
+  and exact capacity/tier/minimum/pause against preserved original configuration.
 - Keep local memory cache development-only and optional paid Redis off by default.
   Preserve the exact caveat: “The local in-memory cache is not a production
   distributed-cache design.”
 - Default CI does not deploy. Protected environments, OIDC, rulesets and scanning
   settings require explicit owner configuration, not claims based on source files.
+- Preserve disabled metric/activity rules and all 14 source alert definitions;
+  scheduled-query resources are created only on explicit alert opt-in after
+  actual ingestion/schema checks. Disabled/skipQueryValidation is not a promise
+  that creation avoids queries. Partial failed deployments remain billable;
+  preserve private evidence and obtain approval for regional retry and cleanup.
 - Cloud raw artifacts persist completely to private Blob Storage via managed
   identity when storage settings are configured; any upload failure fails the
   job. Log only file/hash/prefix receipts, not raw contents. Authorized private-
@@ -79,14 +90,23 @@ than invented paths, flags or APIs.
 - Preserve `src.experiments.cloud_job` management-plane execution overrides:
   complete template and identity/storage environment retained, exact returned
   execution polled, persistent job template unchanged, no automatic restart.
-  Receipt retrieval is not independent Blob download/hash verification.
-  Baseline-image idle/matrix and operator/config-based collector CLI dependencies
+  Verify actual blob/manifest readback SHA-256 and lengths before publishing the
+  completion receipt. Receipt retrieval and job-side verification are not
+  independent operator Blob download/hash verification.
+  Deploy and explicit smoke share launch_smoke, requiring exact execution,
+  profile/run match, SQL business-request success, required collection and
+  managed-identity readback proof. Never promote a mere completed job to success.
+  Baseline-image idle/matrix and operator Azure CLI credential dependencies
   remain explicit. Managed cloud monitoring instead uses CLI-free MI-only REST,
   separate ARM/Log Analytics audiences and mandatory coverage reporting.
   Missing required sources fails nonzero; archive failure evidence without
-  promoting it to success. Query Store/SQL diagnostics/pricing require separate
-  approved observer/operator collection, never enlarged runner SQL privileges.
-  Measured labels cover only the Azure Monitor subset. Preserve request/response/
+  promoting it to success. Cloud collection defaults to post-workload
+  collect_sql(observer_only=True, credential=api.credential), fresh Online
+  control-plane gating and NullPool, with contained CONNECT/VIEW DATABASE STATE
+  only; no application-table/schema/write/admin grants. Idle/idle-after and
+  --skip-sql omit observer queries; missing required non-idle observations fail.
+  Public retail pricing is attempted with honest gaps. Measured labels cover
+  the declared Monitor/observer scope, not all POC requirements. Preserve request/response/
   retry bounds and disabled redirects; verify rebuilt image/environment/roles
   before treating locally tested collector code as live validation.
 
@@ -99,6 +119,10 @@ Every unmeasured/undemonstrated result: “Not demonstrated by this POC run.”
 Separate measured facts, estimates, official product behavior, guidance,
 recommendations and unknowns. Do not make cloud claims from mocked tests. Do not
 rename timeouts as throttling without correlated error/resource evidence.
+Missing/unrecognized X-POC-Outcome stays Unknown regardless of status/retry
+headers, except for an actual measured client Timeout exception. Preserve only
+fixed-allowlisted native_outcome values; never publish arbitrary header text or
+infer client timeout from HTTP 504/server client_timeout.
 Never average percentiles or compare unmatched profiles as a capacity experiment.
 Use actual achieved demand and distinguish API requests from SQL statements.
 

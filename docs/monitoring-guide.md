@@ -37,11 +37,16 @@ and manifest coverage. Missing required configuration, CPU/data-I/O/log-I/O/
 workers/sessions, correlated logs or serverless billed vCore-seconds results
 in incomplete collection and nonzero exit. Optional-source gaps stay explicit.
 Archived failure artifacts do not mean monitoring succeeded.
-`measured`/`measured-with-gaps` apply only to the collected Azure Monitor subset,
-not to all POC requirements or separately authorized SQL/pricing sources.
+`measured`/`measured-with-gaps` apply to the declared Azure Monitor plus read-only
+SQL-observer scope, not all POC requirements or production performance.
 
-This path never opens SQL or reads Query Store directly; those sources and retail
-pricing need separate approved observer/operator collection. Protected API
+After a fresh control-plane Online check, non-idle collection also uses the same
+approved identity for bounded SQL/Query Store observer reads through `NullPool`.
+Contained SQL `CONNECT` and `VIEW DATABASE STATE` are required separately from
+Azure RBAC; no application-table/write/admin grants or dynamic privilege elevation.
+Unavailable required observer sections make collection incomplete. Idle windows
+and explicit `--skip-sql` omit these reads and record the gap. Public retail
+pricing is attempted separately; missing prices are not fabricated. Protected API
 pre/post dataset observation is separate and excluded from the measured window.
 Its metadata SELECTs can nevertheless warm SQL caches; record that influence.
 Do not query SQL during idle. See the
@@ -257,7 +262,11 @@ does not excuse persistence failure. See [evidence](evidence-guide.md).
 Alert templates remain disabled until an owner approves conditions, routing and
 noise review. All 14 signal definitions are represented in IaC, including
 scheduled-query and event-driven rules; the serverless metric rule is
-conditional. See [alert runbooks](alerting-guide.md). Validate an alert with a
+conditional. The three scheduled-query resources are **omitted unless alerts
+are explicitly enabled**; metric/activity rules remain disabled by default.
+Disabled state and `skipQueryValidation=true` do not guarantee creation avoids
+query execution against missing tables. Verify real ingestion and schema first.
+See [alert runbooks](alerting-guide.md). Validate an alert with a
 controlled signal and verify notification routing privately before relying on it.
 For C2 idle tests, avoid diagnostic collectors that execute SQL.
 

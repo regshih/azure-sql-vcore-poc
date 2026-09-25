@@ -85,6 +85,12 @@ reviewable changes, not only a proposal. Follow these requirements:
     Cache comparison defaults to disabled plus the existing configured backend.
     Explicit cache modes/matrix backend assertions must match before any toggle;
     never switch/provision a provider implicitly. Preserve versioned restoration.
+    Fresh observed tuning_mode supplies original tuning; --original-tuning is
+    optional when observed, required when null, and mismatch fails pre-mutation.
+    Preserve same-instance preflight and the GP Gen5 2/4 automatic restoration
+    envelope. Unknown min/pause or unsupported originals fail, never default to 2.
+    Verify restored full SKU/maxSize/zone/readScale/license/backup redundancy
+    plus exact capacity/compute tier/minimum/pause against preserved originals.
 15. User counts and 50,000 daily reads are context, not production sizing proof.
     Record acceleration, target/achieved request rate, SQL statement rate and
     source time horizon separately; API requests and SQL reads are not 1:1.
@@ -96,6 +102,10 @@ reviewable changes, not only a proposal. Follow these requirements:
 18. Separate measured results, estimated cost, product documentation, general
     guidance, recommendation and unknowns. Do not label every timeout as
     throttling or infer actual allocated vCores from app_cpu_percent alone.
+    Missing/unrecognized X-POC-Outcome stays Unknown irrespective of status/retry
+    headers unless an actual client Timeout exception was measured. Never infer
+    success from HTTP status or accept a server client_timeout alias as client
+    evidence. Preserve native_outcome through a fixed allowlist only.
 19. Serverless is bounded autoscaling, not unlimited/instant burst credits.
     Use Total app_cpu_billed vCore-seconds for observed compute usage; consider
     memory/minimum billing. The documented GP 0.5–4 configuration with 2.1 GB
@@ -137,24 +147,39 @@ reviewable changes, not only a proposal. Follow these requirements:
     or permanently modify the job template. Missing receipts/timeouts/failures
     fail closed without automatic restart. Do not claim receipt observation is
     independent download verification. Reject unsupported baseline-image idle
-    workflows; operator/config-based collector, matrix and idle controls still
+    workflows; operator Azure CLI credentials, matrix and idle controls still
     require Azure CLI. Cloud jobs automatically request collection and pre/post
     dataset observation. Preserve CLI-free managed-identity-only REST collection
     for ARM SQL configuration/metrics and Log Analytics, with separate audience
     tokens and no credential fallbacks. Preserve required-source failure/nonzero
     semantics, collection-coverage.json and failure-artifact archiving.
-    This collector never opens SQL; Query Store/diagnostics/pricing require a
-    separate approved observer/operator, not elevated runner database grants.
-    Measured coverage labels apply only to the Azure Monitor subset. Preserve
+    Preserve default post-workload collect_sql(observer_only=True,
+    credential=api.credential), fresh control-plane Online gating, NullPool and
+    separately provisioned contained CONNECT/VIEW DATABASE STATE only; never
+    grant application-table/schema/write/admin access. Skip diagnostic SQL for
+    idle/idle-after windows and explicit --skip-sql. Required unavailable observer
+    sections fail collection. Attempt public regional retail prices without
+    fabricating missing rates. Coverage labels describe the declared Monitor/
+    observer scope, not all POC requirements. Preserve
     bounded windows/responses/retries, no redirects and the distinct
     request-scheduling deadline. Rebuild image and verify environment/role wiring
     before claiming live behavior from locally tested code.
+    Deploy and explicit smoke must share launch_smoke: verify exact execution,
+    matching profile/run, SQL business-request success, required collection, and
+    job-side readback SHA-256/lengths for every blob and the completion manifest.
+    Preserve operator-independent-download=false until a separate authorized
+    download verifies the complete archive; job-side readback is not that proof.
 25. Cite current official Microsoft documentation for product claims and note
     conflicting/outdated guidance rather than silently using it. Inspect real
     monitoring schemas; never invent tables or populated metrics.
 26. Keep default CI nondeploying. Cloud workflow setup requires owner-configured
     protected environment, explicit approval and OIDC, not a stored client secret.
     Do not claim branch rulesets or scanning settings were enabled by adding files.
+    Retain all 14 alert definitions, but create the three scheduled-query
+    resources only with explicit alert opt-in after real table/query validation.
+    Disabled rules and skipQueryValidation do not guarantee empty-workspace
+    deployment succeeds. Preserve partial resources/evidence after a failed
+    deployment; regional retry/new scope and cleanup each require approval.
 
 Finish with changed files, verified commands/results, known limitations, customer
 inputs still required, exact unexecuted validations, next experiment, and safe

@@ -171,7 +171,13 @@ The launcher also requests `--collect-cloud --observe-dataset-state` automatical
 Required SQL-resource/workspace/identity environment settings must survive the
 template override. Platform/log collection uses managed-identity REST without
 Azure CLI; protected API dataset refresh is separate and occurs pre/post outside
-the measured workload window. Neither grants the runner SQL observer/admin rights.
+the measured workload window. Cloud collection additionally performs bounded
+post-workload Query Store/resource/storage observation after a fresh Online
+control-plane check, using the same approved credential and `NullPool`.
+Observer rights are separately provisioned: contained SQL `CONNECT` and
+`VIEW DATABASE STATE`, never administrator or application-write access.
+Idle/idle-after windows omit diagnostic SQL automatically; missing required
+non-idle observer data makes collection incomplete, not successful telemetry.
 
 The launcher accepts bundled profile names only, not arbitrary profile files.
 It supports smoke, business-hours, expected, peak, spike, variable-demand and
@@ -182,9 +188,10 @@ it is not an arbitrary-host runner or an authorization bypass. These workload
 profiles do not themselves authorize a separate SQL failover operation.
 
 The baseline image can run HTTP profiles, managed-identity REST monitoring and
-SDK Blob persistence without Azure CLI, but it does not contain `az`. The
-operator/configuration-based collector, management-plane idle controls and matrix
-still require an Azure-CLI-equipped authorized environment. The launcher rejects
+SDK Blob persistence and read-only SQL-observer collection without Azure CLI,
+but it does not contain `az`. Operator Azure CLI credentials, management-plane
+idle controls and matrix still require an authorized CLI-equipped environment.
+The launcher rejects
 idle profiles before starting the baseline
 job; use the explicitly approved CLI-equipped private operator path instead.
 Do not assume arbitrary runner/matrix options are accepted by this launcher.
@@ -195,6 +202,11 @@ Launcher implementation and local contract tests do not establish live execution
 private connectivity, workload success or independently verified persistence.
 End-to-end cloud profile execution and artifact retrieval:
 **Not demonstrated by this POC run.**
+
+The dedicated deployment smoke gate also validates successful SQL business
+requests, required collection and job-side readback hashes for every blob and
+archive manifest. See [verified smoke](deployment-guide.md#verified-deployment-smoke).
+That gate leaves independent operator download false until separately verified.
 
 ### Controlled internal endpoints
 
@@ -418,15 +430,27 @@ The controlled slow-query comparison can automate the tuning/capacity sequence:
 ```
 
 It compares baseline/index/query/both at provisioned 2/4 using the same workload
-hash and attempts restoration in a `finally` path. `--original-tuning` is an
-operator assertion, not proof of the database's actual starting objects/plans.
-Before changing tuning, authenticated
+hash and attempts restoration in a `finally` path. Fresh observed `tuning_mode`
+is the default original mode; `--original-tuning` is optional when observed and
+mandatory when observation is null. It is an assertion, not proof of actual
+starting objects/plans, and a mismatch aborts before any mutation.
+Before reading or changing compute, the comparison explicitly refreshes SQL
+metadata and verifies the same original process instance. Authenticated
 `GET /internal/metadata?refresh_database=true` returns top-level `tuning_mode`
 from `dbo.RuntimeConfiguration`. Capture it before the metrics baseline and
 compare any explicit assertion with the observed value. If it is null/unknown,
 require an explicit reviewed `--original-tuning` or abort the restoration-sensitive
 scenario; never assume baseline. A reported mode still warrants verification of
-actual objects/plans. Verify observed restoration independently. All controlled
+actual objects/plans. The example's `baseline` assertion is valid only when it
+matches the observed state or is the approved assertion for a null observation.
+
+Persist original compute configuration. This comparison accepts only restorable
+GP Gen5 original 2/4-vCore SKUs; unsupported families and unknown serverless
+minimum/pause settings fail preflight, never default to 2. Restore exact original
+capacity/tier/minimum/pause and verify full SKU, maximum size, zone redundancy,
+read scale, license type and backup redundancy. This is the current automation's
+restoration envelope, not the full Azure product capability range.
+Verify observed restoration independently. All controlled
 token, dataset-equivalence and operational approvals still apply; a failed
 restoration must be reported rather than hidden by successful workload results.
 

@@ -279,7 +279,7 @@ class SqlRepository:
         with self.connection(transaction=True) as connection:
             context = current_context.get()
             wait_ms = int(min(context.remaining() if context else 5, 5) * 1000)
-            result = connection.execute(
+            result: int = connection.execute(
                 text(
                     "SET NOCOUNT ON; DECLARE @result int; "
                     "EXEC @result=sys.sp_getapplock @Resource=:resource, @LockMode='Exclusive', "

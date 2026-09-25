@@ -54,6 +54,11 @@ presence. Missing headers are missing evidence, not zero retries or database
 calls. These HTTP observations do not imply automatic Application Insights
 custom-property export. Use raw client elapsed time for client end-to-end latency
 and distinguish it from server-reported elapsed/pool timing.
+Missing/unrecognized `X-POC-Outcome` remains `Unknown` irrespective of HTTP/retry
+headers, except for a genuinely measured client Timeout exception. Do not infer
+success from HTTP 200 or client timeout from HTTP 504. The fixed-allowlisted
+`native_outcome` is a separate subtype, not arbitrary header text. See
+[outcome normalization](spike-and-throttling-guide.md#runner-outcome-normalization).
 
 OpenTelemetry request `SERVER` spans and child `CLIENT` `sql.execute` spans use
 the optional Azure Monitor trace exporter. Structured console
@@ -169,8 +174,12 @@ labels differ from REST identifiers.
 | `sys.database_automatic_tuning_options` | Desired/actual automatic tuning settings and reasons | Document settings before/after; recommendations do not prove improvement |
 
 Diagnostic scripts should carry purpose, required permissions, output definitions,
-interpretation, and retention limits. Use a separate diagnostic identity, not
-runtime privilege escalation. Rank queries independently by CPU, average duration,
+interpretation, and retention limits. Use a diagnostic identity distinct from
+the API runtime—not runtime privilege escalation. The default cloud observer
+uses the runner's separately provisioned contained CONNECT/VIEW DATABASE STATE
+grants, NullPool and a fresh Online check after workload completion; idle windows
+skip it. Broader catalog examples above are not a claim that every listed view
+is collected or authorized by that narrow role. Rank queries independently by CPU, average duration,
 total duration, execution count, logical reads, plan regression, and wait category.
 Compare like-for-like intervals; a higher total duration may simply mean more
 executions. Do not execute Query Store/DMV collectors during an auto-pause wait.

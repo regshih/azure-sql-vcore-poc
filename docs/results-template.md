@@ -26,7 +26,8 @@ requirement.** Missing metrics/results must remain exactly
 | Create-only initial/final snapshots and per-case reset receipt references | Not demonstrated by this POC run. |
 | Final snapshot digest verification and reset's non-restored data-loss acknowledgement | Not demonstrated by this POC run. |
 | Automated comparison status and independently reviewed validity | Not demonstrated by this POC run. |
-| REST collection required/optional coverage and separate SQL/pricing sources | Not demonstrated by this POC run. |
+| Azure Monitor/SQL-observer coverage, skips and retail-price provenance | Not demonstrated by this POC run. |
+| SQL-backed smoke and job-side versus operator-independent archive verification | Not demonstrated by this POC run. |
 | Run-specific idempotency namespace and replay handling | TBD |
 | Workload hash, phases, duration, rates/concurrency and acceleration | TBD |
 | Reference run and single changed variable | TBD |

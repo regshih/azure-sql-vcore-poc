@@ -13,6 +13,12 @@ rules, and two event-driven Activity Log/Resource Health rules. The conditional
 serverless rule is not part of a provisioned-only deployment. All paging is
 disabled by default, owner is **TBD**, and no action group is supplied by default.
 Implementation does not prove live metric availability or alert delivery.
+All 14 definitions remain in source, but **the three scheduled-query alert
+resources are created only when alerts are explicitly enabled**. With the
+default `enable_alerts=false` (`enableAlerts` in Bicep), they are omitted, not
+created as disabled resources. Metric and Activity Log templates remain present
+and disabled; the serverless metric rule also retains its compute-tier condition.
+Definition count is not a claim that 14 resources exist in every deployment.
 
 Enabling `enable_alerts` requires private `alert_action_group_ids`, an
 `alert_owner` other than TBD, and an HTTPS `alert_runbook_base_url`. Scope and
@@ -57,12 +63,15 @@ definitions, actual workspace schemas and denominator behavior before enablement
 | `retryPercent` | 5% |
 | `minimumRequests` | 100 observed rows; verify each query's actual denominator |
 
-The scheduled-query templates initially use `skipQueryValidation=true` because
-real ingestion/schema has not yet been verified. This is a deployment
-accommodation, **not query validation**. Run each actual query against observed
-tables before enabling notifications and review whether the skip remains
-necessary. No synthetic rows or forced zero results should be introduced to
-make validation appear successful.
+**Do not rely on disabled state or `skipQueryValidation=true` to make creation
+safe against an empty workspace.** Resource creation can still execute or
+validate queries and fail when required tables have not been ingested. This is
+why scheduled-query resources are omitted until opt-in. The skip flag is neither
+proof of query correctness nor a guarantee that the service will not query.
+First verify actual `AppRequests` and `ContainerAppConsoleLogs_CL` ingestion,
+schema and each real query; only then approve creation/enablement and owner
+routing. Review whether the skip remains appropriate. Do not insert synthetic
+rows or force zero results merely to make deployment validation pass.
 
 Observed log rows may be sampled, duplicated or incomplete. The
 `minimumRequests` key is not proof of that many unsampled business requests.
@@ -85,8 +94,9 @@ an explicit no-data policy, not a forced zero or continuous SQL readiness probe.
 
 Use the implemented infrastructure templates, then verify actual deployment,
 query execution, signal transitions, owner routing, action-group delivery and
-noise. All 14 definitions are represented in IaC; remaining work is live
-verification and customer approval, not an unimplemented log-alert placeholder.
+noise. All 14 definitions are represented in IaC, including opt-in-only
+scheduled-query resources; remaining work is live verification and customer
+approval, not an unimplemented log-alert placeholder.
 Owner-configured alert delivery: **Not demonstrated by this POC run.**
 
 Reference: [Azure Monitor alerts](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-overview).

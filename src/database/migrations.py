@@ -50,7 +50,7 @@ def migrate(engine: Engine, directory: Path = SQL_ROOT / "migrations") -> list[s
     migrations = discover(directory)
     applied: list[str] = []
     with engine.begin() as connection:
-        locked = connection.execute(
+        locked: int = connection.execute(
             text(
                 "SET NOCOUNT ON; DECLARE @r int; EXEC @r=sys.sp_getapplock "
                 "@Resource='poc-schema-migration',@LockMode='Exclusive',@LockOwner='Transaction',"
@@ -67,7 +67,7 @@ def migrate(engine: Engine, directory: Path = SQL_ROOT / "migrations") -> list[s
                 "applied_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME())"
             )
         )
-        ledger = dict(
+        ledger: dict[str, str] = dict(
             connection.execute(text("SELECT version,checksum FROM dbo.SchemaMigrations")).tuples()
         )
         known = {migration.version for migration in migrations}

@@ -55,6 +55,29 @@ Absence of any field is a coverage limitation. Never log tokens, passwords,
 authentication headers, full connection configuration, SQL parameter values,
 personal information, or raw driver errors containing environment identifiers.
 
+### Runner outcome normalization
+
+The runner separates HTTP status/retry observations from its final outcome
+taxonomy. A missing or unrecognized `X-POC-Outcome` is **`Unknown`**, regardless
+of status code or retry headers, unless the client actually measured a timeout
+exception. HTTP 200 does not supply a missing success classification; HTTP 504
+does not supply a client-timeout classification.
+
+| Signal | Normalized treatment |
+| --- | --- |
+| Recognized `completed_after_retry` | Preserve the completed-after-retry final category |
+| Recognized `database_connection_timeout` | Database transient error; retain the allowlisted native subtype |
+| `invalid_request`, `not_found`, `business_failure` | `Unknown` in the required taxonomy, with the allowlisted native subtype retained |
+| Missing/unknown outcome header, including a server `client_timeout` alias | `Unknown`; neither HTTP status nor retry count repairs the missing classification |
+| Actual measured client Timeout exception | Client-side timeout, based on the client boundary rather than a response-header claim |
+
+Locust request records and the idle first-request record preserve `native_outcome`
+only through the fixed native allowlist. Unrecognized header text must not be
+copied into that field or published. Keep the normalized category and permitted
+native subtype separate; neither establishes SQL throttling without corroborating
+SQL/resource evidence. Report HTTP error counts separately when their definition
+differs from these outcome counts.
+
 ## Retry classification and limits
 
 | Error class | Default decision principle |

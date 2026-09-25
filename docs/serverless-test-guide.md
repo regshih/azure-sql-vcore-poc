@@ -79,6 +79,9 @@ minimum. Choose an approved delay locally and record it. Never run the
    trigger is exactly one timed API operation. Capture client start, each attempt,
    retry delay, final status, and total elapsed time; the first request may fail
    within its deadline before the database finishes resuming.
+   Preserve its normalized outcome and fixed-allowlisted `native_outcome`.
+   HTTP 504 or a server `client_timeout` header is not proof of a client Timeout
+   exception; missing/unrecognized outcome metadata remains `Unknown`.
 7. Observe control-plane resume events/state and then a controlled subsequent
    request stream. Separate first-request, recovery-period, and stable-state
    latency distributions.

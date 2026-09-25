@@ -119,6 +119,12 @@ claim savings.
 
 ## Decision and cleanup
 
+A failed deployment can leave provisioned SQL, Blob, registry and networking
+resources billable. An approved retry in another region/new resource group does
+not remove that original partial scope. Inventory and budget both scopes
+privately, preserve evidence, and obtain explicit cleanup approval for each.
+Do not treat a failed application deployment as zero infrastructure cost.
+
 Compare matched workload outcomes first. A cheaper configuration that misses an
 approved objective may not be a viable option. A brief accelerated run cannot be
 linearly extrapolated to monthly pause, cache or memory behavior without an

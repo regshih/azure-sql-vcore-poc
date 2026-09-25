@@ -12,7 +12,7 @@ Live control effectiveness: **Not demonstrated by this POC run.**
 | Deployment operator/federated workflow | Approved resource deployment and scoped role assignment | Do not use a broad deployment identity for API SQL requests |
 | SQL bootstrap managed identity | Entra-only SQL administrator for initialization, migration/seed/grants | No application traffic; review continued admin assignment after setup |
 | API runtime managed identity | Least-privilege contained user for required reads/writes | No ownership, schema changes, SQL admin, role assignment or resource management |
-| Workload runner identity | Reach approved API; SQL-resource Reader and workspace Log Analytics Reader for REST monitoring | No automatic SQL diagnostic/admin or cloud mutation rights; monitor reads do not grant SQL database access |
+| Workload runner identity | Approved API; SQL-resource Reader/workspace Log Analytics Reader; separately provisioned contained SQL CONNECT and VIEW DATABASE STATE observer grants | No application-table/schema/write/admin or cloud-mutation rights; Azure RBAC alone does not grant SQL observer access |
 | Evidence writer | Runner-managed identity with scoped Storage Blob Data Contributor | No account-key use, public blob access or automatic operator write privileges |
 | Evidence download operator | Separately approved blob read/list role and private network access | Do not assume deployment or SQL roles grant blob data access |
 | Diagnostic operator | Time-bounded approved monitoring/SQL state visibility | Do not enlarge runtime rights just to collect DMVs |
@@ -27,6 +27,10 @@ managed identity, with no environment-secret, CLI or browser fallback. The REST
 collector requests separate ARM and Log Analytics audience tokens; neither is
 a SQL token or the internal API shared bearer secret. Missing monitoring access
 must produce explicit coverage failure, not privilege escalation.
+The post-workload observer reuses the credential object to request the SQL
+audience token. It opens a bounded unpooled connection only after freshly
+confirmed Online status and outside idle windows; SQL grants remain distinct
+from credential selection and Azure monitoring roles.
 
 The separate initialization job runs migrations, deterministic seed and contained
 runtime-user setup. Validate initialization completion and effective runtime

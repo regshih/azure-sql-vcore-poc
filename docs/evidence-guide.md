@@ -11,6 +11,10 @@ customer requirement.**
    source workload horizon, acceleration, target/achieved rate and UTC window.
 2. Record preconditions and the one intended changed variable. Keep requested
    and observed configuration separate, including restored configuration.
+   Preserve original full SKU/storage/zone/read-scale/license/backup settings.
+   Fresh observed tuning is the default; any explicit original-tuning assertion
+   must match before mutation, and null observation requires an assertion.
+   Restoration evidence must verify full original configuration, not just vCores.
 3. Run workload and capture raw request/outcome/attempt data where available.
    Refresh database metadata before the application baseline, then collect
    baseline/end cumulative snapshots from the same `instance_id`. Preserve
@@ -51,7 +55,7 @@ measured data after any one command:
 | `workload-summary.json` | Attempted/completed/read/write counts, rate and latency definitions, duration and profile overrides |
 | `application-metrics.json` | Request/dependency/pool/concurrency/cache counters, percentiles, coverage and sampling |
 | `azure-sql-metrics.json` | Metric names/units/aggregation/grain/time series/coverage, serverless billed Total where available |
-| `collection-coverage.json` for REST cloud collection | Required/optional source coverage, measured/incomplete status and bounded safe error categories; never inferred zeroes |
+| `collection-coverage.json` for cloud collection | Azure Monitor plus read-only SQL-observer coverage, explicit idle/skip status and bounded safe error categories; never inferred zeroes |
 | `query-store-summary.json` | Safe aggregated query/plan statistics, capture settings/window/coverage, no raw SQL text |
 | `sql-diagnostics.json` when SQL collection is requested/skipped | Private schema/ledger, aggregate dataset state, resource/storage diagnostics and explicit coverage/skip reasons |
 | `error-summary.json` | Defined final-outcome categories/counts and sanitized codes |
@@ -65,6 +69,12 @@ For a missing source, preserve a structured missing/coverage status and the exac
 statement **Not demonstrated by this POC run.** Do not populate numeric zero or a
 plausible sample as if observed. Sanitized examples are explicitly empty/template
 examples, not benchmark results.
+Request-level and idle-first-request `native_outcome` values are retained only
+through the fixed native allowlist. The sanitizer does not publish arbitrary
+outcome-header text. Preserve `Unknown` when the outcome header is missing or
+unrecognized; HTTP status/retry counts do not fill in a missing classification.
+An actual client Timeout exception is separate measured evidence. See
+[normalization rules](spike-and-throttling-guide.md#runner-outcome-normalization).
 
 Preserve initial/final snapshots exactly as written. The runner never rewrites
 these create-only files; subsequent collector enrichment belongs in the mutable
@@ -103,7 +113,7 @@ connection string is required.
 | SDK authentication | Cloud `DefaultAzureCredential(managed_identity_client_id=AZURE_CLIENT_ID)` is constrained to managed identity; local operators explicitly use `AzureCliCredential`; BlobServiceClient uses the HTTPS blob endpoint |
 | Runner authorization | Scoped Storage Blob Data Contributor; role assignment does not replace private network/DNS access |
 | Prefix | Content-addressed `runs/<safe-run-id-or-bundle-hash>/<content-hash-prefix>`; no customer name or environment identifier |
-| Upload success | Every raw file and required output persisted; completion manifest records complete filenames/lengths/SHA-256 and the upload receipt binds its full hash |
+| Upload success | Every raw file persisted and read back by the job to verify bytes/SHA-256; completion manifest written last and read back; receipt binds its full hash |
 | Upload failure | Nonzero runner/job result with exact status `private-evidence-persistence-failed`; never successful completion with only console output |
 | Cloud job without a destination | Fails closed rather than silently falling back to ephemeral files |
 | Local run without storage settings | Files persist in the ignored local output directory normally |
@@ -125,6 +135,11 @@ marker. It contains every raw filename, length and SHA-256 digest. An incomplete
 prefix without a valid complete manifest is not a successful archive. Retry
 behavior must preserve matching existing content and reject mismatches; these
 overwrite/idempotency controls are not an Azure immutable-retention policy.
+Completion also requires the job to read back every blob and the completion
+manifest and verify actual length/SHA-256—not merely trust uploaded hash
+metadata. The receipt's `verification.method=blob-readback-sha256` records that
+job-side check. This is **not independent operator retrieval**:
+`operator_download_verified` remains false until the separate download workflow.
 
 To retry persistence of an existing approved raw bundle without rerunning the
 workload:
@@ -143,7 +158,8 @@ network and grant only the necessary data permissions.
 prefix, with neither raw nor sanitized artifact payloads. The complete archive
 inventory is also in `archive-manifest.json` and local
 `cloud-archive-receipt.json`. `POC_EVIDENCE_UPLOAD` records completion with the
-safe prefix, full manifest SHA-256 and count. Verify that full manifest hash,
+safe prefix, full manifest SHA-256, count, bounded workload-verification fields
+and job-side readback proof—not artifact contents. Verify that full manifest hash,
 then the complete file inventory; prefix/count alone is insufficient. Receipt
 logs do not replace the full private artifact set.
 Raw metrics/configuration/request files can contain environment metadata and
@@ -192,8 +208,8 @@ RBAC permissions. Use approved private connectivity, not a public-access
 exception, shared key or SAS workaround.
 
 A VNet-connected local runner remains an alternative source of full artifacts.
-Platform/Query Store collection can require a separate diagnostic identity and
-permission scope. Persisting the required files does not prove that every source
+Platform and Query Store collection require their distinct Azure RBAC and SQL
+observer grants. Persisting the required files does not prove that every source
 was available: absent measurements retain the required missing-evidence status.
 
 ### Separate workload, monitoring and SQL permissions
@@ -201,13 +217,17 @@ was available: absent measurements retain the required missing-evidence status.
 The runner's Blob Data Contributor role authorizes evidence storage only. It does
 not grant SQL access, Azure Monitor reads or Log Analytics queries. Separately
 approve the minimum necessary resource-read/monitoring actions at the SQL
-resource scope and query permissions at the intended workspace scope. Confirm
+resource scope, workspace queries, and contained SQL observer `CONNECT` plus
+`VIEW DATABASE STATE`. No application-table/schema/write/admin grants are
+needed by the observer. Confirm
 effective access with a bounded collection probe, not by assuming a role's name
 proves all required operations.
 
 ### CLI-free cloud monitoring collector
 
-The implemented `src.experiments.cloud_evidence` REST collector uses `httpx` and managed-identity-only
+The implemented `src.experiments.cloud_evidence` collector combines REST
+monitoring with a post-workload read-only SQL observer. Its REST transport uses
+`httpx` and managed-identity-only
 `DefaultAzureCredential`; Azure CLI is not required **inside the job** for
 database configuration, platform metrics or correlated workspace-log collection.
 Environment/client-secret, CLI and browser credential fallbacks are excluded.
@@ -238,9 +258,15 @@ environment, use the same settings without a configuration file:
 ```
 
 This is not a local Azure CLI credential fallback. It requires a working
-approved managed-identity endpoint. The REST collector opens **no SQL connection**
-and does not query Query Store or elevate database privileges. The launcher's
-separate `--observe-dataset-state` feature calls protected API metadata, which
+approved managed-identity endpoint. By default, after REST monitoring the
+collector calls `collect_sql(observer_only=True, credential=api.credential)`:
+the same approved identity obtains a SQL-audience token, without fallback to
+bootstrap/admin credentials. A fresh control-plane **Online** observation is
+required before opening the unpooled SQL connection. Query Store options,
+bounded top-query/wait summaries, resource samples and storage are collected;
+application table/schema/ledger reads are not granted. Dataset/version/tuning
+evidence instead comes from the launcher's
+`--observe-dataset-state` feature, which calls protected API metadata and
 does perform SQL pre/post refresh outside the measured workload window; do not
 mistake that observation for permission to query during idle.
 Those metadata SELECTs can warm SQL buffer/plan caches even though excluded from
@@ -268,16 +294,23 @@ workers/sessions observations, correlated logs, and billed vCore-seconds for
 serverless. Missing required sources produce **incomplete collection and a
 nonzero result**, not a successful all-null evidence bundle. Optional gaps are
 explicitly classified `measured-with-gaps`. Both `measured` and
-`measured-with-gaps` describe only this **Azure Monitor subset**, not complete
-POC evidence or SQL-observer coverage. Workspace correlation uses verified table
+`measured-with-gaps` describe the declared **Azure Monitor and read-only SQL
+observer collection scope**, not every POC requirement or a capacity conclusion.
+For non-idle runs without `--skip-sql`, unavailable required Query Store
+options/top-query/wait sections or resource/storage diagnostics make coverage
+incomplete and nonzero. Workspace correlation uses verified table
 schemas; no correlated log observations is incomplete. Inspect
 `collection-coverage.json` and the manifest rather than merely
 checking that files exist. A metric sample's presence does not establish full
 window coverage or causality.
 
-Query Store, direct SQL diagnostics and pricing remain explicitly unmeasured
-through this REST path and require a separate approved observer/operator
-collection step. Missing values remain **Not demonstrated by this POC run.**
+Idle/idle-after run windows automatically skip diagnostic SQL; explicit
+`--skip-sql` also records the omission. Skipped observer data is not measured
+Query Store evidence even if platform collection succeeds. Query Store capture
+lag/retention and interval overlap remain limitations; no rows is not a proven
+zero. Public regional retail-price collection is also attempted, with unavailable
+pricing reported as a gap rather than fabricated rates or a cost winner.
+Missing values remain **Not demonstrated by this POC run.**
 Error ledgers retain HTTP status codes and categories, not tokens, full request
 URLs or response bodies. Failure artifacts and coverage are still archived in
 the runner's `finally` persistence path; a successfully archived failure remains
@@ -285,17 +318,20 @@ a failed/incomplete collection.
 Local contract tests do not establish live endpoint access, identity grants,
 sample coverage or successful deployment. Rebuild the approved image and apply
 the environment/role wiring before live validation; local source changes alone
-do not update an existing job's image. Live REST collection:
+do not update an existing job's image. Live cloud/observer collection:
 **Not demonstrated by this POC run.**
 
 ### Current runtime-image limitation
 
 The baseline Python image does **not** install Azure CLI. HTTP workloads, the
-managed-identity REST cloud collector and SDK Blob persistence do not need it.
+managed-identity REST plus SQL-observer collection and SDK Blob persistence do
+not need it. Observer collection does require ODBC 18, private SQL connectivity
+and the contained observer grants.
 External job submission still uses an authorized workstation Azure CLI.
-Operator `--config` collection, management-plane idle controls and matrix
-operations still require the CLI-equipped authorized environment, with private
-connectivity where API/SQL access is needed. The new REST collector does not
+An operator using `--config` with Azure CLI credentials needs an authorized CLI
+environment; the monitoring transport itself remains REST. Management-plane
+idle controls and matrix operations still require the CLI-equipped authorized
+environment, with private connectivity where API/SQL access is needed. The collector does not
 implement all management operations or make baseline-image idle/matrix paths
 available. SQL assets in the image do not establish observer permission.
 
@@ -322,10 +358,13 @@ were durably uploaded.
 
 ### Bounded SQL diagnostics
 
-The separate **operator/configuration-based** collector attempts read-only SQL
-diagnostics by default when `--config` is supplied; a local/operator runner's
-`--collect-cloud` with configuration can also invoke it. This is not the cloud-job
-REST path, which never opens a diagnostic SQL connection.
+Both `--cloud-rest` and configuration-based evidence collection use the
+post-workload **observer-only** SQL path by default outside idle windows, unless
+`--skip-sql` is selected. `src.experiments.sql_evidence` implements the bounded
+SQLAlchemy reads. Cloud uses the same managed-identity credential object as
+monitoring, with a separate SQL token audience; configured operators use their
+approved credential context. Grants are pre-provisioned by the approved bootstrap
+workflow, not elevated dynamically by collection.
 It checks the management-plane database state first. Non-Online or unavailable
 state skips SQL without a connection probe. With Online state and approved
 access, it uses the core Azure Identity/ODBC 18 SQLAlchemy engine with `NullPool`,
@@ -333,14 +372,15 @@ bounded login/command timeouts, and disposal after reads. The current 5-second
 login and 10-second command bounds are a **POC assumption, not a confirmed
 customer requirement.**
 
-Collected sources include schema/catalog and migration ledger, live aggregate
-dataset state, UTC-filtered `sys.dm_db_resource_stats`, storage-file information,
+Collected sources include UTC-filtered `sys.dm_db_resource_stats`, storage-file information,
 Query Store configuration and parameterized run-window query/wait summaries.
 The Query Store queries reuse `sql\query-store\top-queries.sql` and `waits.sql`;
 counts and weighted CPU/duration/read statistics retain their declared units.
-An accessible migration ledger can update manifest `schema_version` with its
-observation timestamp/source. Dataset aggregates require quiescence and remain
-aggregate-only fingerprints, not proof of identical row content.
+The observer deliberately skips application schema/ledger/dataset reads because
+it has no application-table grants. Fresh guarded API snapshots supply schema/
+dataset/tuning metadata with source/timestamps. Dataset aggregates require
+quiescence and remain aggregate-only fingerprints, not proof of identical row
+content.
 
 No raw SQL text or raw error strings are exported. Missing network, database
 permission or schema support produces explicit unavailable/null sections with
@@ -351,11 +391,14 @@ pseudonymized query/plan references.
 **Online is not permission to disturb an idle trial.** A query while the
 database is Online but waiting to auto-pause can reset its idle timer; state can
 also change after the check. During any intended no-session interval, use the
-collector's explicit `--skip-sql`, or postpone collection. Do not add a guessed
-runner flag; invoke platform-only collection through the documented entry point:
+collector's explicit `--skip-sql`, or postpone collection. Recognized idle/
+idle-after run manifests automatically skip observer SQL, but an operator must
+not rely on a mislabeled manifest to protect an unrelated active idle trial.
+Do not add a guessed runner flag; invoke platform-only collection explicitly:
 
 ```powershell
 .\.venv\Scripts\python.exe -m src.experiments.evidence --run-dir <private-run-directory> --config <local-config-path> --skip-sql
+.\.venv\Scripts\python.exe -m src.experiments.evidence --run-dir <private-run-directory> --cloud-rest --skip-sql
 ```
 
 This records SQL diagnostics as skipped/unavailable, not validated. Query Store

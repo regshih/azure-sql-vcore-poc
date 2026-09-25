@@ -54,10 +54,10 @@ flowchart LR
     SQL["Azure SQL"] --> Metrics["Platform metrics<br/>CPU / IO / workers / sessions"]
     SQL --> QS["Query Store and bounded DMVs"]
     Control["Control-plane state and Activity Log"] --> Logs
-    Metrics --> REST["Runner MI-only REST collector<br/>distinct ARM and Logs audiences<br/>no diagnostic SQL connection"]
+    Metrics --> REST["Runner MI-only REST transport<br/>distinct ARM and Logs audiences<br/>configuration, metrics and logs"]
     Logs --> REST
     REST --> Evidence["Correlated private evidence<br/>explicit required and optional coverage"]
-    QS --> Observer["Separately approved SQL observer<br/>outside idle and measured workload"]
+    QS --> Observer["Runner read-only SQL observer<br/>CONNECT and VIEW DATABASE STATE<br/>fresh Online gate and no SQL during idle"]
     Observer --> Evidence
     Evidence --> Report["Sanitized report<br/>measurements separate from estimates"]
 ```
@@ -124,9 +124,10 @@ flowchart LR
     Local["VNet-connected local runner<br/>full request artifacts"] --> Raw
     Job["Container Apps runner job<br/>all raw run files"] --> Upload["Mandatory managed-identity upload<br/>fail job if any persistence fails"]
     Upload --> Blob["Private Blob container<br/>run-ID prefix and complete artifact set"]
-    Upload --> Summary["POC_EVIDENCE file/hash receipts only<br/>POC_EVIDENCE_UPLOAD manifest hash"]
     Blob --> Inventory["Completion manifest written last<br/>all file paths, lengths, SHA-256"]
-    Inventory --> Download
+    Inventory --> Readback["Job-side verification<br/>every blob and manifest length/SHA-256"]
+    Readback --> Summary["Receipt-only logs<br/>readback proof, not operator download"]
+    Readback --> Download
     Blob --> Download["Authorized VNet-connected download<br/>verify inventory and hashes"]
     Summary --> Download
     Download --> Raw

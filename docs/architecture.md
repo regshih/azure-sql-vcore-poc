@@ -20,7 +20,7 @@ availability, and disaster recovery: **Not demonstrated by this POC run.**
 | Runtime | Separate managed identity with least-privilege contained database permissions | No schema modification, database ownership, or platform-management rights needed for normal requests |
 | Workload | Separate runner job or VNet-connected local Locust process | Load generation must not share the measured API process |
 | Durable evidence | Private Azure Blob account/container with private endpoint/DNS; runner identity has scoped Storage Blob Data Contributor | Full raw files; 21-day lifecycle plus seven-day soft delete are POC assumptions; no storage keys, SAS or public blob access |
-| Observability | Application Insights, Log Analytics, managed-identity REST SQL configuration/platform metrics/logs; separate Query Store/SQL observer | Cloud collection needs no CLI or elevated SQL rights; required gaps fail explicitly; diagnostic SQL can change the workload |
+| Observability | Application Insights, Log Analytics, MI REST SQL configuration/metrics/logs plus post-workload Query Store/SQL observer | No CLI inside cloud job; separate contained CONNECT/VIEW DATABASE STATE grants, no app-table/admin rights; fresh Online gate and no observer SQL in idle windows |
 | Caching | Disabled by default; development memory cache; optional Redis compatibility | No paid cache deployed by default; see [cache decisions](workload-guide.md#cache-comparison) |
 
 See the eight [architecture diagrams](architecture-diagram.md) and
@@ -123,6 +123,11 @@ Local runs without storage settings continue to persist files normally.
 raw or sanitized artifact payloads. `POC_EVIDENCE_UPLOAD` records completion with
 prefix and full completion-manifest hash/count.
 The completion manifest holds the complete file inventory and per-file hashes.
+Before emitting completion, the job reads back every blob and the archive
+manifest and checks actual lengths/SHA-256. Verified deployment smoke also
+requires matching exact-execution/profile evidence, SQL business-request success
+and required collection. Its job-side archive proof leaves independent operator
+download false.
 Logs are not the durable artifact store. An authorized VNet-connected operator downloads the private files,
 verifies inventory/hashes, then sanitizes and reviews a separate public bundle.
 Raw local outputs and `deployment.local.json` are ignored and private. Platform

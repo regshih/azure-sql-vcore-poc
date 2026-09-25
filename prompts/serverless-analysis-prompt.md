@@ -18,6 +18,10 @@ duration/warm-up/monitoring except the declared changed variable. Record actual
 min/max/memory/pause settings and capability validation, not just intended values.
 Distinguish source workload volume, acceleration, target/achieved rate and SQL
 statement count. Record every mismatch and its consequence.
+Verify preserved/restored full SKU, maximum size, zone/read-scale/license/backup
+settings and exact original compute tier/capacity/minimum/pause; equal vCores
+alone is not restoration. Fresh observed tuning takes precedence as the default,
+and an explicit original-tuning assertion must match before mutation.
 Require fresh verified SQL adapter/version/tuning metadata and dataset_size
 counts/source. Check identical explicit product-count overrides against observed
 seeded products. Memory/unverified adapters and overflowing ID distributions
@@ -50,11 +54,17 @@ completion-manifest hash against the POC_EVIDENCE_UPLOAD receipt, then every
 file's length/hash against the full inventory. Logs contain receipts,
 not full raw evidence. Missing uploads, failed persistence or mismatched hashes
 must be reported rather than analyzed as a complete successful run.
+Separate job-side blob/manifest readback verification from independent operator
+download; neither receipt observation nor verified smoke makes the latter true.
 Inspect collection-coverage.json: missing required REST metrics/logs/configuration,
 including billed vCore-seconds for serverless, is incomplete even when failure
-artifacts were uploaded successfully. Query Store/SQL diagnostics/pricing need
-separate approved sources; the cloud REST collector does not query SQL.
-Its measured coverage labels apply only to the Azure Monitor subset.
+artifacts were uploaded successfully. Non-idle cloud collection defaults to a
+post-workload SQL/Query Store observer after a fresh Online check, using NullPool
+and contained CONNECT/VIEW DATABASE STATE only. Required unavailable observer
+sections fail coverage. Idle/idle-after windows and explicit --skip-sql omit
+diagnostic SQL even if Online; an omitted source is not measured Query Store.
+Public retail pricing is attempted with explicit gaps. Measured labels describe
+the declared Monitor/observer scope, not all POC requirements or a cost winner.
 
 ## Required analysis
 
@@ -70,6 +80,9 @@ Its measured coverage labels apply only to the Azure Monitor subset.
   runs. Never average percentiles or hide failed requests.
 - First-request resume latency including retries and failures; subsequent-request
   and stable-state latency separately. One trial is not a meaningful p99.
+  Preserve allowlisted native_outcome; missing/unrecognized X-POC-Outcome stays
+  Unknown except for an actual client Timeout exception. HTTP 504 or a server
+  client_timeout alias is not measured client-timeout evidence.
 - Retry rate, attempt amplification, timeout rate, final error rate, pool/queue,
   workers/sessions and safe write behavior.
 - Whether pause occurred with control-plane state/Activity Log evidence.

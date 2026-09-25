@@ -121,8 +121,9 @@ run **directory**. Use a new ignored private destination in either case.
 
 Execution requires `--execute --confirm-poc --allow-unsafe-test`, a private
 `--config`, `--host`/remote `--allow-host`, a new `--output` directory,
-`--original-tuning` matching the observed starting state, and a supported
-positive `--auto-pause-delay`. Use `--tests` to select only specifically approved
+verified original tuning/restorable compute settings, and a supported positive
+`--auto-pause-delay`. `--original-tuning` is optional when fresh observation is
+available, but mandatory when it is null. Use `--tests` to select only specifically approved
 rows. C2 also needs `--confirm-no-other-sql-clients` and an adequate
 `--pause-timeout`; Test 15 additionally needs `--include-geo`.
 
@@ -193,14 +194,24 @@ is not a storage WORM/retention guarantee. See the
 
 ### Original settings and restoration
 
-`--original-tuning` is an operator assertion; record independently observed
-starting tuning and restored objects/plans. The authenticated explicit metadata
-refresh exposes `tuning_mode` from the database's runtime configuration. Capture
-it before any tuning change and before metrics baseline; a null/unknown value
-requires an explicit reviewed original-mode assertion or abort, never an assumed
-baseline. Preserve original SKU, hardware family and full supported compute
-configuration, and restore that exact configuration in the cleanup path rather
-than blindly selecting the default 2-vCore setting. Matrix output includes
+Fresh authenticated metadata `tuning_mode` is the default original tuning mode.
+`--original-tuning` is an optional assertion that must match the observed value;
+a mismatch aborts **before mutation**. A null observation requires the explicit
+reviewed assertion or abort, never an assumed baseline. Record starting tuning
+and verify actual restored objects/plans independently.
+
+Persist original configuration before mutations. Matrix/tuning experiments
+accept only original **General Purpose Gen5 2/4-vCore SKUs** that the current
+operations implementation can restore. Unsupported family/tier/capacity or
+unknown original serverless minimum/pause settings fail preflight; there is no
+fallback to 2 vCores. This automation envelope is not a claim that Azure supports
+only these capacities.
+
+Restore exact original capacity, compute tier, minimum and pause settings, then
+verify full SKU, maximum size, zone redundancy, read scale, license type and
+backup redundancy against the preserved original configuration. Matching
+capacity alone does not establish restoration. A failed restoration remains an
+explicit failure even if the workload succeeded. Matrix output includes
 `serverless-comparison.md` and `failover-application.json` when applicable.
 The latter's sampled five-consecutive-success recovery criterion is a declared
 POC heuristic, not proof of customer RTO or sustained latency compliance.

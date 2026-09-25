@@ -28,11 +28,17 @@ customer systems to fill gaps.
    Match cloud-launch evidence to the exact requested profile and returned
    execution identity. An older successful execution, accepted start response or
    upload receipt alone is not verified workload or downloaded-bundle success.
-   Inspect collection-coverage.json and manifest coverage. A persisted REST
+   A verified smoke must show SQL business-request success, required collection
+   and managed-identity job-side readback hashes for every blob/manifest. Keep
+   operator-independent download false until its own complete verification.
+   Inspect collection-coverage.json and manifest coverage. A persisted cloud
    collection failure remains incomplete; measured-with-gaps does not prove
-   complete metrics and covers only the Azure Monitor subset.
-   Query Store/SQL diagnostics/pricing require a separately
-   sourced observer/operator artifact, never inference from platform CPU.
+   complete metrics or all POC requirements. Default cloud collection includes
+   post-workload read-only SQL/Query Store after a fresh Online check, using
+   CONNECT/VIEW DATABASE STATE only and NullPool. Idle/idle-after or explicit
+   --skip-sql omits those reads; do not label a skip measured Query Store.
+   Required missing observer data fails coverage. Retail prices are attempted
+   separately; inspect actual source coverage, never infer SQL/prices from CPU.
 2. Establish comparison validity: same database, region/hardware where supported,
    storage, app/replica/pool/retry/cache configuration, workload hash/rates/duration,
    warm-up and dataset. Report confounders and separate one-variable experiments.
@@ -48,6 +54,9 @@ customer systems to fill gaps.
    Verify repository_backend=sql and sql_adapter_configured=true together.
    Department-only diagnostics do not select product IDs; do not misclassify
    their product-bound exemption as an adapter or authorization exemption.
+   Check original-tuning assertion against fresh observation and retained
+   configuration. Restoration success needs full SKU/maxSize/zone/readScale/
+   license/backup plus capacity/tier/minimum/pause verification, not capacity alone.
    Review create-only manifest.initial.json/manifest.final.json and each
    reset-provenance-test-NN.json rather than only mutable manifest.json.
    Verify the final snapshot digest bound in matrix results, the generator hash,
@@ -71,6 +80,12 @@ customer systems to fill gaps.
    success after retry, client/API/SQL/pool timeout, transient/nontransient
    database error, shedding, circuit rejection, deadlock, cancellation or unknown.
    Define every rate denominator and retry amplification.
+   Missing/unrecognized X-POC-Outcome is Unknown regardless of HTTP/retry headers,
+   except for a measured client Timeout exception. Keep fixed-allowlisted
+   native_outcome separate: database_connection_timeout maps to database
+   transient error; invalid_request/not_found/business_failure stay Unknown with
+   permitted native subtype. HTTP 200/504 and server client_timeout cannot supply
+   missing success/client-timeout evidence.
 6. Correlate app queue/pool/dependency signals with SQL CPU/I/O/workers/sessions,
    query plans/reads/waits and control-plane events. State hypotheses and competing
    explanations. Do not assert throttling or root cause from latency/CPU alone.
