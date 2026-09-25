@@ -96,6 +96,7 @@ def deploy_phase(cli: AzureCLI, template: Path, application: bool, *, what_if_on
                 str(template),
                 "--parameters",
                 f"@{path}",
+                "--no-prompt",
             ]
             cli.run("deployment", "sub", "validate", *common)
             changes = cli.run("deployment", "sub", "what-if", *common, "--no-pretty-print")

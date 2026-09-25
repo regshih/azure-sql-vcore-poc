@@ -290,6 +290,16 @@ def test_baseline_parameters_preserve_fair_comparison() -> None:
     assert "internalApiToken" not in parameters
 
 
+def test_azure_cli_does_not_inherit_interactive_input(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(azure.shutil, "which", lambda _: "az")
+    execute = Mock(return_value=subprocess.CompletedProcess(["az"], 0, "{}", ""))
+    monkeypatch.setattr(azure.subprocess, "run", execute)
+    assert AzureCLI(configuration(), tmp_path).run("account", "show") == {}
+    assert execute.call_args.kwargs["stdin"] == subprocess.DEVNULL
+
+
 @pytest.mark.parametrize("fail", [False, True])
 def test_deploy_token_is_ephemeral_and_redacted(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fail: bool
@@ -302,6 +312,7 @@ def test_deploy_token_is_ephemeral_and_redacted(
     tokens: list[str] = []
 
     def execute(*args: str, **kwargs: Any) -> dict[str, Any]:
+        assert "--no-prompt" in args
         path = Path(args[args.index("--parameters") + 1][1:])
         parameters = json.loads(path.read_text())["parameters"]
         token = parameters["internalApiToken"]["value"]

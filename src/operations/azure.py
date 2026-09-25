@@ -235,6 +235,7 @@ class AzureCLI:
             completed = subprocess.run(
                 command,
                 cwd=ROOT,
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
