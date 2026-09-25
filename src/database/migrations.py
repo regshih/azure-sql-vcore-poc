@@ -67,9 +67,12 @@ def migrate(engine: Engine, directory: Path = SQL_ROOT / "migrations") -> list[s
                 "applied_at datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME())"
             )
         )
-        ledger: dict[str, str] = dict(
-            connection.execute(text("SELECT version,checksum FROM dbo.SchemaMigrations")).tuples()
-        )
+        ledger: dict[str, str] = {
+            version: checksum
+            for version, checksum in connection.execute(
+                text("SELECT version,checksum FROM dbo.SchemaMigrations")
+            ).tuples()
+        }
         known = {migration.version for migration in migrations}
         if set(ledger) - known:
             raise ValueError("Database has migrations unknown to this application version.")

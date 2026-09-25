@@ -4,6 +4,12 @@ Document changes here without customer identifiers or fabricated measurements.
 
 ## Unreleased
 
+### Fixed
+
+- Consume migration ledger rows explicitly instead of treating SQLAlchemy's
+  result object as a dictionary. Regression tests use real cursor results for
+  empty, partially applied and fully applied ledgers.
+
 ### Added
 
 - Documentation for a General Purpose provisioned baseline, controlled 2-to-4

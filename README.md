@@ -270,7 +270,10 @@ context, with writers stopped:
 ```
 
 Retain the reset receipt, original workload settings and before/after dataset
-fingerprints. The fingerprint summarizes aggregate state, not every row. Replaying
+fingerprints. Protected API metadata fingerprints summarize aggregate state.
+The reset receipt and administration `fingerprint` command additionally hash
+ordered business rows with writers stopped; neither proves equivalent cache
+or physical database state. Replaying
 the same idempotency keys is not an equivalent new-write workload. No reset is
 authorized merely by ordinary deployment confirmation.
 

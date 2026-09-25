@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
+from sqlalchemy import create_engine, text
 
 from src.database import manage
 from src.database.manage import grant_runtime, runtime_user_sql, tune
@@ -59,6 +60,36 @@ def test_migration_checksum_drift_is_rejected() -> None:
     with pytest.raises(ValueError, match="checksum"):
         migrate(engine)
     connection.exec_driver_sql.assert_not_called()
+
+
+@pytest.mark.parametrize("applied_count", [0, 1, 2])
+def test_migration_ledger_consumes_real_sqlalchemy_rows(applied_count: int) -> None:
+    migrations = discover()
+    database = create_engine("sqlite://")
+    engine = MagicMock()
+    connection = engine.begin.return_value.__enter__.return_value
+    result = MagicMock()
+    result.scalar_one.return_value = 0
+    try:
+        with database.connect() as cursor_connection:
+            cursor_connection.execute(text("CREATE TABLE ledger (version TEXT, checksum TEXT)"))
+            for migration in migrations[:applied_count]:
+                cursor_connection.execute(
+                    text("INSERT INTO ledger VALUES (:version, :checksum)"),
+                    {"version": migration.version, "checksum": migration.checksum},
+                )
+
+            def execute(statement, parameters=None):
+                if str(statement) == "SELECT version,checksum FROM dbo.SchemaMigrations":
+                    return cursor_connection.execute(text("SELECT version,checksum FROM ledger"))
+                return result
+
+            connection.execute.side_effect = execute
+            assert migrate(engine) == [
+                migration.version for migration in migrations[applied_count:]
+            ]
+    finally:
+        database.dispose()
 
 
 def test_runtime_grants_are_object_scoped_and_separate_from_admin() -> None:
