@@ -1,0 +1,6 @@
+name: peak
+users: 100
+spawn_rate: 20
+duration: 600
+rate: 200
+write_ratio: 0.05

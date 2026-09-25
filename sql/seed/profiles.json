@@ -1,0 +1,8 @@
+{
+  "version": "synthetic-v1",
+  "small": {"work_items": 100, "products": 24},
+  "medium": {"work_items": 10000, "products": 2000},
+  "large": {"work_items": 500000, "products": 50000},
+  "maximum_work_items": 3000000,
+  "description": "POC assumptions, not customer requirements. Seed generation is deterministic; use --rows to approach the size target and measure actual allocated storage."
+}

@@ -1,0 +1,91 @@
+name: Manually approved POC deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_poc:
+        description: I approve billable deployment to a dedicated POC resource group
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: poc-deployment
+  cancel-in-progress: false
+jobs:
+  verify-environment:
+    if: inputs.confirm_poc
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require existing environment with deployment reviewers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          gh api "repos/$GH_REPO/environments/poc" \
+            --jq '.protection_rules | map(select(.type == "required_reviewers" and (.reviewers | length > 0))) | length > 0' \
+            | grep -qx true
+  deploy:
+    if: inputs.confirm_poc
+    needs: verify-environment
+    environment: poc # REQUIRED: configure reviewers and protected branches in GitHub settings.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      POC_REGION: ${{ vars.POC_REGION }}
+      POC_RESOURCE_GROUP: ${{ vars.POC_RESOURCE_GROUP }}
+      POC_ENVIRONMENT_NAME: ${{ vars.POC_ENVIRONMENT_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Require explicit environment configuration
+        shell: bash
+        run: |
+          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID POC_REGION POC_RESOURCE_GROUP POC_ENVIRONMENT_NAME; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Missing environment variable: $key"
+              exit 1
+            fi
+            echo "::add-mask::${!key}"
+          done
+          git check-ignore --quiet deployment.local.json
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install application
+        run: python -m pip install .
+      - name: Generate private configuration and deploy
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from src.operations.azure import DeploymentConfig
+          config = DeploymentConfig(
+              subscription_id=os.environ["AZURE_SUBSCRIPTION_ID"],
+              resource_group=os.environ["POC_RESOURCE_GROUP"],
+              environment_name=os.environ["POC_ENVIRONMENT_NAME"],
+              region=os.environ["POC_REGION"],
+          )
+          Path("deployment.local.json").write_text(
+              json.dumps(config.model_dump(mode="json")), encoding="utf-8"
+          )
+          PY
+          python -m src.operations.cli deploy --config deployment.local.json --confirm-poc

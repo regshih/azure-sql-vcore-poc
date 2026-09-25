@@ -1,0 +1,21 @@
+// Run this first in the destination Log Analytics workspace. Missing-table warnings are expected
+// until corresponding exporters/diagnostic settings deliver rows. Zero rows is not a healthy signal.
+union isfuzzy=true withsource=SourceTable
+    AppRequests, AppDependencies, AppTraces, AzureMetrics, AzureDiagnostics, ContainerAppConsoleLogs_CL
+| where TimeGenerated >= ago(24h)
+| summarize Rows=count(), FirstUtc=min(TimeGenerated), LastUtc=max(TimeGenerated) by SourceTable
+| order by SourceTable asc
+;
+// Run only for a table confirmed above; repeat getschema on other available tables.
+AzureDiagnostics | getschema
+;
+AzureDiagnostics
+| where TimeGenerated >= ago(24h)
+| summarize Rows=count() by Category
+| order by Category asc
+;
+// Metric definitions must ALSO be listed from ARM before collection/alert creation.
+AzureMetrics
+| where TimeGenerated >= ago(24h)
+| summarize Rows=count() by ResourceProvider, MetricName, UnitName
+| order by MetricName asc

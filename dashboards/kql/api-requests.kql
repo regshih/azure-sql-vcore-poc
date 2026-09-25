@@ -1,0 +1,24 @@
+// Workspace-based AppRequests; requires exported SERVER spans. Bounds are UTC; set to run manifest.
+// Empty RunId means all runs. Percentiles describe observed telemetry, not missing/sampled traffic.
+let StartUtc = ago(1h);
+let EndUtc = now();
+let RunId = "";
+AppRequests
+| where TimeGenerated >= StartUtc and TimeGenerated < EndUtc
+| extend TestRunId=tostring(Properties.test_run_id)
+| where isempty(RunId) or TestRunId == RunId
+| summarize RepresentedRequests=sum(ItemCount),
+    RepresentedFailures=sumif(ItemCount, Success == false),
+    ObservedP50Ms=percentile(DurationMs, 50),
+    ObservedP95Ms=percentile(DurationMs, 95),
+    ObservedP99Ms=percentile(DurationMs, 99)
+    by bin(TimeGenerated, 1m), TestRunId, Name
+| extend ErrorPercent=100.0 * RepresentedFailures / RepresentedRequests
+| order by TimeGenerated asc
+;
+// Failed API rows only, no URLs or raw payloads.
+AppRequests
+| where TimeGenerated >= ago(1h) and Success == false
+| project TimeGenerated, OperationId, Name, ResultCode, DurationMs,
+    TestRunId=tostring(Properties.test_run_id)
+| take 100

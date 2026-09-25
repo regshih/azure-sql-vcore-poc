@@ -1,0 +1,7 @@
+[sqlfluff]
+dialect = tsql
+templater = raw
+# Parsing is always enforced; tolerate SQL Server batch/procedure semicolon conventions.
+rules = CP01,LT12
+max_line_length = 120
+large_file_skip_byte_limit = 0

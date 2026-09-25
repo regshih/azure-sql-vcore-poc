@@ -1,0 +1,7 @@
+name: failover
+users: 4
+spawn_rate: 2
+duration: 300
+rate: 4
+write_ratio: 0.05
+scenario: failover

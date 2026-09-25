@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceGroupName": {
+      "value": "rg-sqlvcore-poc"
+    },
+    "environmentName": {
+      "value": "poc"
+    },
+    "location": {
+      "value": "centralus"
+    },
+    "deploymentProfile": {
+      "value": "secure"
+    },
+    "allowEvaluationPublicAccess": {
+      "value": false
+    },
+    "evaluationIp": {
+      "value": ""
+    },
+    "deployApplication": {
+      "value": false
+    },
+    "image": {
+      "value": ""
+    },
+    "sqlComputeTier": {
+      "value": "Provisioned"
+    },
+    "sqlVcores": {
+      "value": 2
+    },
+    "sqlMinVcores": {
+      "value": "0.5"
+    },
+    "sqlAutoPauseDelay": {
+      "value": -1
+    },
+    "sqlMaxSizeGb": {
+      "value": 5
+    },
+    "sqlHardwareFamily": {
+      "value": "Gen5"
+    },
+    "sqlBackupRedundancy": {
+      "value": "Local"
+    },
+    "sqlZoneRedundant": {
+      "value": false
+    },
+    "enableDr": {
+      "value": false
+    },
+    "secondaryLocation": {
+      "value": ""
+    }
+  }
+}

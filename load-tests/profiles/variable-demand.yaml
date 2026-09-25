@@ -1,0 +1,11 @@
+name: variable-demand
+users: 100
+spawn_rate: 20
+duration: 600
+rate: 100
+phases:
+  - {fraction: 0.2, multiplier: 0.1}
+  - {fraction: 0.2, multiplier: 1}
+  - {fraction: 0.2, multiplier: 2}
+  - {fraction: 0.2, multiplier: 0.1}
+  - {fraction: 0.2, multiplier: 0}

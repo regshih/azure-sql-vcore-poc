@@ -1,0 +1,16 @@
+// ACA environment Log Analytics destination schema. Resource-specific mode instead uses
+// ContainerAppConsoleLogs with Log/ContainerAppName: inspect getschema and adapt before running.
+let RunId = "";
+ContainerAppConsoleLogs_CL
+| where TimeGenerated >= ago(1h)
+| extend Body=parse_json(Log_s)
+| where tostring(Body.event) in ("operation_attempt", "operation_final")
+| extend TestRunId=tostring(Body.test_run_id), Correlation=tostring(Body.correlation_id)
+| where isempty(RunId) or TestRunId == RunId
+| project TimeGenerated, ContainerAppName_s, TestRunId, Correlation,
+    Event=tostring(Body.event), Attempt=toint(Body.attempt), Retry=tobool(Body.retry_decision),
+    Retries=toint(Body.retry_count), FinalResult=tostring(Body.final_result),
+    Category=tostring(Body.error_category), ElapsedMs=todouble(Body.elapsed_ms),
+    PoolWaitMs=todouble(Body.pool_wait_ms), DependencyMs=todouble(Body.dependency_ms)
+| order by TimeGenerated asc
+| take 1000

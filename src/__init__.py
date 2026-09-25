@@ -1,0 +1,1 @@
+"""Synthetic business API foundation."""

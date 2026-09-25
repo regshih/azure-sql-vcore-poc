@@ -1,0 +1,11 @@
+title = "Azure SQL POC - extend built-in secret detectors"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Local dependency and tool caches only; evidence and source remain scanned"
+paths = [
+  '''(^|/|\\)\.venv(/|\\)''',
+  '''(^|/|\\)(__pycache__|\.mypy_cache|\.ruff_cache|\.pytest_cache)(/|\\)''',
+]

@@ -1,0 +1,19 @@
+{
+  "subscription_id": "<subscription-id>",
+  "resource_group": "<new-dedicated-resource-group>",
+  "environment_name": "<unique-lowercase-prefix>",
+  "region": "<capability-validated-region>",
+  "deployment_profile": "secure",
+  "sql_compute_tier": "Provisioned",
+  "sql_vcores": 2,
+  "sql_min_vcores": 0.5,
+  "sql_auto_pause_delay": -1,
+  "sql_max_size_gb": 5,
+  "sql_zone_redundant": false,
+  "sql_backup_redundancy": "Local",
+  "enable_dr": false,
+  "enable_business_critical": false,
+  "enable_legacy_redis": false,
+  "enable_sql_diagnostics": false,
+  "enable_alerts": false
+}

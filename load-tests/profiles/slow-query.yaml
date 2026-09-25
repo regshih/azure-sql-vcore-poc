@@ -1,0 +1,7 @@
+name: slow-query
+users: 5
+spawn_rate: 1
+duration: 60
+rate: 5
+write_ratio: 0
+scenario: slow

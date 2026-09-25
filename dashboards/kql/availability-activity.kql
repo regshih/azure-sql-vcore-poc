@@ -1,0 +1,13 @@
+// Requires subscription Activity Log export to this workspace. Not every SQL write is failover.
+// Operation status reports control-plane progress, NOT measured application outage/RTO.
+AzureActivity
+| where TimeGenerated >= ago(24h)
+| where _ResourceId contains "/providers/Microsoft.Sql/"
+| where OperationNameValue contains "failover"
+    or CategoryValue in ("ResourceHealth", "ServiceHealth")
+| project TimeGenerated, CategoryValue, OperationNameValue, ActivityStatusValue, CorrelationId,
+    _ResourceId
+| order by TimeGenerated asc
+// Serverless pause/resume is NOT guaranteed to create Activity Log or a SQL diagnostic category.
+// Sample database ARM status (Online/Pausing/Paused/Resuming) with timestamps via the operations CLI;
+// correlate private samples with requests and metrics. No ServerlessPauseEvents table is assumed.

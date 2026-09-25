@@ -1,0 +1,12 @@
+// Prerequisite: discover.kql confirms AzureDiagnostics and these actual enabled category values.
+// Resource-specific destinations may use AzureSQL* tables instead: inspect schema, do not rename
+// blindly. Missing categories/rows are NOT evidence of no errors/deadlocks/timeouts.
+AzureDiagnostics
+| where TimeGenerated >= ago(1h)
+| where ResourceProvider =~ "MICROSOFT.SQL"
+| where Category in ("Errors", "Timeouts", "Blocks", "Deadlocks", "QueryStoreRuntimeStatistics",
+    "QueryStoreWaitStatistics")
+| summarize ObservedRows=count() by bin(TimeGenerated, 1m), Category, _ResourceId
+| order by TimeGenerated asc
+// Do not project free-form diagnostic payloads without redaction; prefer local Query Store SQL
+// for stable interval/plan-level CPU, logical-read and duration analysis.

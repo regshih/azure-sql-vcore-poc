@@ -1,0 +1,89 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "name": "prerequisites",
+      "content": {
+        "json": "# Azure SQL POC observation workbook\nSelect the destination Log Analytics workspace and UTC time range. Panels require the corresponding telemetry tables and diagnostic exports. No data means not demonstrated, not healthy. Use the KQL discovery queries before importing. This is not a pricing or deployment template."
+      }
+    },
+    {
+      "type": 9,
+      "name": "parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "workspace",
+            "name": "Workspace",
+            "type": 5,
+            "isRequired": true,
+            "query": "Resources | where type =~ 'microsoft.operationalinsights/workspaces' | project id, name",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "includeAll": false
+            }
+          },
+          {
+            "id": "time-range",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "value": {"durationMs": 3600000},
+            "typeSettings": {"selectableValues": [{"durationMs": 3600000}, {"durationMs": 86400000}]}
+          }
+        ]
+      }
+    },
+    {
+      "type": 3,
+      "name": "sql-resource-pressure",
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "SQL resource pressure — exported maximum %",
+        "query": "AzureMetrics\n| where TimeGenerated {TimeRange}\n| where ResourceProvider =~ 'MICROSOFT.SQL'\n| where MetricName in ('cpu_percent','physical_data_read_percent','log_write_percent','workers_percent','sessions_percent')\n| summarize Maximum=max(Maximum) by bin(TimeGenerated, 1m), MetricName, ResourceId",
+        "size": 0,
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["{Workspace}"],
+        "visualization": "timechart",
+        "timeContextFromParameter": "TimeRange"
+      }
+    },
+    {
+      "type": 3,
+      "name": "api-latency-errors",
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Observed API p95 and represented failures",
+        "query": "AppRequests\n| where TimeGenerated {TimeRange}\n| summarize P95Ms=percentile(DurationMs,95), Requests=sum(ItemCount), Failures=sumif(ItemCount,Success == false) by bin(TimeGenerated,1m)\n| extend ErrorPercent=100.0*Failures/Requests",
+        "size": 0,
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["{Workspace}"],
+        "visualization": "table",
+        "timeContextFromParameter": "TimeRange"
+      }
+    },
+    {
+      "type": 3,
+      "name": "console-retries",
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "ACA final outcomes — retry counts per request",
+        "query": "ContainerAppConsoleLogs_CL\n| where TimeGenerated {TimeRange}\n| extend Body=parse_json(Log_s)\n| where tostring(Body.event) == 'operation_final'\n| summarize FinalRequests=count(), RetriedRequests=countif(toint(Body.retry_count)>0) by TestRunId=tostring(Body.test_run_id)\n| extend RetryPercent=100.0*RetriedRequests/FinalRequests",
+        "size": 0,
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["{Workspace}"],
+        "visualization": "table",
+        "timeContextFromParameter": "TimeRange"
+      }
+    }
+  ],
+  "fallbackResourceIds": [],
+  "isLocked": false
+}

@@ -1,0 +1,64 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_AZURE_MONITOR",
+      "label": "Existing Azure Monitor data source",
+      "description": "Select an authorized existing data source. No paid Grafana resource is created.",
+      "type": "datasource",
+      "pluginId": "grafana-azure-monitor-datasource",
+      "pluginName": "Azure Monitor"
+    }
+  ],
+  "title": "Azure SQL POC — optional observation template",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["azure-sql", "poc"],
+  "time": {"from": "now-1h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "workspace", "label": "Log Analytics workspace resource ID (private)", "type": "textbox",
+       "current": {"text": "", "value": ""}, "query": ""},
+      {"name": "sqlResource", "label": "SQL database resource ID (private)", "type": "textbox",
+       "current": {"text": "", "value": ""}, "query": ""}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "text", "title": "Prerequisites",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
+      "options": {"mode": "markdown", "content": "Configure an existing Azure Monitor data source and enter resource IDs locally. Confirm metric export/table schemas first. SQL percentages are exported maxima; blank data is not proof of health. Do not commit the configured dashboard."}
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "SQL CPU / I/O / workers / sessions (%)",
+      "gridPos": {"x": 0, "y": 4, "w": 24, "h": 9},
+      "datasource": {"type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A", "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resources": ["${workspace}"],
+            "resultFormat": "time_series",
+            "query": "AzureMetrics\n| where $__timeFilter(TimeGenerated)\n| where ResourceId =~ '${sqlResource}'\n| where MetricName in ('cpu_percent','physical_data_read_percent','log_write_percent','workers_percent','sessions_percent')\n| summarize Value=max(Maximum) by bin(TimeGenerated, 1m), MetricName\n| order by TimeGenerated asc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Observed API p95 duration (ms)",
+      "gridPos": {"x": 0, "y": 13, "w": 24, "h": 8},
+      "datasource": {"type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}"},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A", "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resources": ["${workspace}"], "resultFormat": "time_series",
+            "query": "AppRequests\n| where $__timeFilter(TimeGenerated)\n| summarize P95Ms=percentile(DurationMs,95) by bin(TimeGenerated,1m)\n| order by TimeGenerated asc"
+          }
+        }
+      ]
+    }
+  ]
+}

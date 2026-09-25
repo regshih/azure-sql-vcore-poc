@@ -1,0 +1,8 @@
+name: expected
+users: 20
+spawn_rate: 10
+duration: 600
+rate: 87.71929824561404
+write_ratio: 0.05
+equivalent_period_seconds: 86400
+target_daily_reads: 50000

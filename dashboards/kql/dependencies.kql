@@ -1,0 +1,23 @@
+// Requires exported SQL CLIENT spans; generic internal application spans are NOT SQL dependencies.
+// Use discovered DependencyType values if your exporter maps SQL differently.
+let StartUtc = ago(1h);
+let EndUtc = now();
+let RunId = "";
+let Runs = AppRequests
+    | where TimeGenerated >= StartUtc and TimeGenerated < EndUtc
+    | where isempty(RunId) or tostring(Properties.test_run_id) == RunId
+    | distinct OperationId;
+AppDependencies
+| where TimeGenerated >= StartUtc and TimeGenerated < EndUtc
+| where DependencyType =~ "SQL"
+| join kind=leftsemi Runs on OperationId
+| summarize RepresentedCalls=sum(ItemCount),
+    RepresentedFailures=sumif(ItemCount, Success == false),
+    ObservedP95Ms=percentile(DurationMs, 95), ObservedP99Ms=percentile(DurationMs, 99)
+    by bin(TimeGenerated, 1m), Name
+| order by TimeGenerated asc
+;
+AppDependencies
+| where TimeGenerated >= ago(1h) and Success == false and DependencyType =~ "SQL"
+| project TimeGenerated, OperationId, Name, ResultCode, DurationMs
+| take 100

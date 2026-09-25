@@ -1,0 +1,8 @@
+name: connection-storm
+users: 10
+spawn_rate: 5
+duration: 60
+rate: 10
+write_ratio: 0
+scenario: storm
+connection_mode: no-reuse

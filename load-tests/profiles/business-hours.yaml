@@ -1,0 +1,13 @@
+name: business-hours
+users: 40
+spawn_rate: 10
+duration: 600
+rate: 92.33610341643583
+write_ratio: 0.05
+equivalent_period_seconds: 28800
+phases:
+  - {fraction: 0.1, multiplier: 0.25}
+  - {fraction: 0.2, multiplier: 1}
+  - {fraction: 0.2, multiplier: 1.75}
+  - {fraction: 0.3, multiplier: 1}
+  - {fraction: 0.2, multiplier: 0.375}

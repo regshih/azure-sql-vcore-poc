@@ -1,0 +1,25 @@
+// OPTIONAL AppTraces view: requires deliberate JSON-log export (not enabled by trace export alone).
+// The application emits the same JSON to console; use console-outcomes.kql for default ACA logs.
+let RunId = "";
+let Events = AppTraces
+    | where TimeGenerated >= ago(1h)
+    | extend Body=parse_json(Message)
+    | extend TestRunId=coalesce(tostring(Body.test_run_id), tostring(Properties.test_run_id)),
+        Event=tostring(Body.event), Correlation=tostring(Body.correlation_id)
+    | where isempty(RunId) or TestRunId == RunId;
+Events
+| where Event == "operation_final" and isnotempty(Correlation)
+| summarize arg_max(TimeGenerated, Body) by TestRunId, Correlation
+| summarize FinalRequests=count(), RetriedRequests=countif(toint(Body.retry_count) > 0),
+    FailedRequests=countif(tostring(Body.final_result) !startswith "completed"),
+    ObservedP95Ms=percentile(todouble(Body.elapsed_ms), 95)
+    by TestRunId
+| extend RetriedRequestPercent=100.0 * RetriedRequests / FinalRequests
+;
+// Attempts are separate from final requests: never count transient attempts as final API failures.
+AppTraces
+| where TimeGenerated >= ago(1h)
+| extend Body=parse_json(Message)
+| where tostring(Body.event) == "operation_attempt"
+| summarize Attempts=count(), RetriesSelected=countif(tobool(Body.retry_decision))
+    by bin(TimeGenerated, 1m), Category=tostring(Body.error_category), Code=tostring(Body.error_code)

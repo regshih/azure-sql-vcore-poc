@@ -1,0 +1,7 @@
+name: cache-comparison
+users: 20
+spawn_rate: 5
+duration: 180
+rate: 50
+write_ratio: 0.05
+scenario: cache

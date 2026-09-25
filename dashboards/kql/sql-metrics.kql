@@ -1,0 +1,19 @@
+// First list metric definitions through the operations CLI/ARM and observed names via discover.kql.
+// Diagnostic metric export must be enabled. Some SQL metrics are not exportable to Logs.
+// Empty Resource means all SQL DBs in this workspace; set privately for single-resource analysis.
+let Resource = "";
+AzureMetrics
+| where TimeGenerated >= ago(1h)
+| where ResourceProvider =~ "MICROSOFT.SQL"
+| where isempty(Resource) or ResourceId =~ Resource
+| where MetricName in ("cpu_percent", "physical_data_read_percent", "log_write_percent",
+    "workers_percent", "sessions_percent", "storage_percent", "connection_failed", "deadlock",
+    "app_cpu_percent", "app_cpu_billed")
+| summarize Maximum=max(Maximum), ExportedTotal=sum(Total),
+    WeightedSum=sum(Average * Count), Samples=sum(Count)
+    by bin(TimeGenerated, 1m), ResourceId, MetricName, UnitName
+| extend WeightedAverage=iff(Samples > 0, WeightedSum / Samples, real(null))
+| project-away WeightedSum, Samples
+| order by TimeGenerated asc
+// Interpret percentages with Average/Maximum, counters with Total, and billable compute using
+// discovered units. app_cpu_percent is the documented app compute signal; do not derive price here.
