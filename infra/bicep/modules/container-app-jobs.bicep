@@ -9,10 +9,9 @@ param image string
 param acrLoginServer string
 param bootstrapIdentityId string
 param bootstrapClientId string
-param runtimePrincipalId string
+param runtimeClientId string
 param runnerIdentityId string
 param runnerClientId string
-param runnerPrincipalId string
 param sqlServerHost string
 param sqlDatabaseName string
 param sqlResourceId string
@@ -52,8 +51,8 @@ resource bootstrap 'Microsoft.App/jobs@2025-01-01' = {
             { name: 'SQL_SERVER', value: sqlServerHost }
             { name: 'SQL_DATABASE', value: sqlDatabaseName }
             { name: 'AZURE_CLIENT_ID', value: bootstrapClientId }
-            { name: 'RUNTIME_OBJECT_ID', value: runtimePrincipalId }
-            { name: 'OBSERVER_OBJECT_ID', value: runnerPrincipalId }
+            { name: 'RUNTIME_CLIENT_ID', value: runtimeClientId }
+            { name: 'OBSERVER_CLIENT_ID', value: runnerClientId }
           ]
         }
       ]

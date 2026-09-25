@@ -20,6 +20,18 @@ param evaluationIp string
 param computeTier string
 param vcores int
 
+// Workload-profile pod ranges are not RFC1918; the bearer token remains mandatory.
+var internalAllowedNetworks = [
+  '127.0.0.0/8'
+  '::1/128'
+  '10.0.0.0/8'
+  '172.16.0.0/12'
+  '192.168.0.0/16'
+  '100.100.0.0/17'
+  '100.100.128.0/19'
+  '100.100.160.0/19'
+  '100.100.192.0/19'
+]
 var applicationEnvironment = [
   { name: 'PORT', value: '8000' }
   { name: 'HOST', value: '0.0.0.0' }
@@ -29,6 +41,7 @@ var applicationEnvironment = [
   { name: 'SQL_DATABASE', value: sqlDatabaseName }
   { name: 'AZURE_CLIENT_ID', value: runtimeClientId }
   { name: 'INTERNAL_API_TOKEN', secretRef: 'internal-api-token' }
+  { name: 'INTERNAL_ALLOWED_NETWORKS', value: string(internalAllowedNetworks) }
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
   { name: 'DEPLOYMENT_REGION', value: location }
   { name: 'COMPUTE_TIER', value: toLower(computeTier) }

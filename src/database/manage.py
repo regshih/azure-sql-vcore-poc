@@ -43,13 +43,13 @@ def parse_seed(value: str) -> int:
         raise argparse.ArgumentTypeError("Seed must be between 0 and 2147483647.") from None
 
 
-def runtime_user_sql(object_id: str) -> str:
-    sid = UUID(object_id).bytes_le.hex()
+def runtime_user_sql(client_id: str) -> str:
+    sid = UUID(client_id).bytes_le.hex()
     return f"CREATE USER [poc_runtime] WITH SID=0x{sid}, TYPE=E;"
 
 
-def grant_runtime(engine: Engine, object_id: str) -> None:
-    sid = UUID(object_id).bytes_le
+def grant_runtime(engine: Engine, client_id: str) -> None:
+    sid = UUID(client_id).bytes_le
     with engine.begin() as connection:
         administrator_sid = connection.execute(text("SELECT SUSER_SID()")).scalar_one_or_none()
         if administrator_sid is not None and bytes(administrator_sid) == sid:
@@ -67,7 +67,7 @@ def grant_runtime(engine: Engine, object_id: str) -> None:
         ):
             raise ValueError("Runtime identity must not be a database owner.")
         if existing is None:
-            connection.exec_driver_sql(runtime_user_sql(object_id))
+            connection.exec_driver_sql(runtime_user_sql(client_id))
         connection.exec_driver_sql(
             "IF DATABASE_PRINCIPAL_ID('poc_runtime_role') IS NULL CREATE ROLE poc_runtime_role"
         )
@@ -93,9 +93,9 @@ def grant_runtime(engine: Engine, object_id: str) -> None:
             connection.exec_driver_sql(f"GRANT INSERT ON OBJECT::dbo.{table} TO poc_runtime_role")
 
 
-def grant_observer(engine: Engine, object_id: str, runtime_object_id: str) -> None:
-    sid = UUID(object_id).bytes_le
-    runtime_sid = UUID(runtime_object_id).bytes_le
+def grant_observer(engine: Engine, client_id: str, runtime_client_id: str) -> None:
+    sid = UUID(client_id).bytes_le
+    runtime_sid = UUID(runtime_client_id).bytes_le
     if sid == runtime_sid:
         raise ValueError("Observer and runtime identities must be different.")
     with engine.begin() as connection:
@@ -197,14 +197,14 @@ def parser() -> argparse.ArgumentParser:
             child.add_argument("--confirm-poc", action="store_true")
         if name == "bootstrap":
             child.add_argument(
-                "--runtime-object-id",
+                "--runtime-client-id",
                 type=validated_uuid,
-                help="Runtime principal UUID; defaults to environment RUNTIME_OBJECT_ID.",
+                help="Runtime managed-identity client UUID; defaults to RUNTIME_CLIENT_ID.",
             )
             child.add_argument(
-                "--observer-object-id",
+                "--observer-client-id",
                 type=validated_uuid,
-                help="Optional observer UUID; defaults to environment OBSERVER_OBJECT_ID.",
+                help="Observer managed-identity client UUID; defaults to OBSERVER_CLIENT_ID.",
             )
     tuning = commands.add_parser("tune")
     tuning.add_argument("--mode", choices=("baseline", "index", "query", "both"), required=True)
@@ -224,23 +224,23 @@ def main() -> int:
             and not (arguments.allow_destructive_tests and arguments.confirm_poc)
         ):
             raise ValueError("Reset requires --allow-destructive-tests and --confirm-poc.")
-        if arguments.command == "bootstrap" and arguments.runtime_object_id is None:
-            raw_object_id = os.environ.get("RUNTIME_OBJECT_ID")
-            if not raw_object_id:
-                raise ValueError("RUNTIME_OBJECT_ID or --runtime-object-id is required.")
+        if arguments.command == "bootstrap" and arguments.runtime_client_id is None:
+            raw_client_id = os.environ.get("RUNTIME_CLIENT_ID")
+            if not raw_client_id:
+                raise ValueError("RUNTIME_CLIENT_ID or --runtime-client-id is required.")
             try:
-                arguments.runtime_object_id = UUID(raw_object_id)
+                arguments.runtime_client_id = UUID(raw_client_id)
             except ValueError:
-                raise ValueError("RUNTIME_OBJECT_ID must contain a valid UUID.") from None
+                raise ValueError("RUNTIME_CLIENT_ID must contain a valid UUID.") from None
         if arguments.command == "bootstrap":
-            if arguments.observer_object_id is None:
-                raw_observer_id = os.environ.get("OBSERVER_OBJECT_ID")
+            if arguments.observer_client_id is None:
+                raw_observer_id = os.environ.get("OBSERVER_CLIENT_ID")
                 if raw_observer_id:
                     try:
-                        arguments.observer_object_id = UUID(raw_observer_id)
+                        arguments.observer_client_id = UUID(raw_observer_id)
                     except ValueError:
-                        raise ValueError("OBSERVER_OBJECT_ID must contain a valid UUID.") from None
-            if arguments.observer_object_id == arguments.runtime_object_id:
+                        raise ValueError("OBSERVER_CLIENT_ID must contain a valid UUID.") from None
+            if arguments.observer_client_id == arguments.runtime_client_id:
                 raise ValueError("Observer and runtime identities must be different.")
         settings = Settings()
         if arguments.command == "seed" and arguments.reset and not settings.poc_mode:
@@ -264,10 +264,10 @@ def main() -> int:
             )
         elif arguments.command == "bootstrap":
             versions = migrate(engine)
-            grant_runtime(engine, str(arguments.runtime_object_id))
-            if arguments.observer_object_id is not None:
+            grant_runtime(engine, str(arguments.runtime_client_id))
+            if arguments.observer_client_id is not None:
                 grant_observer(
-                    engine, str(arguments.observer_object_id), str(arguments.runtime_object_id)
+                    engine, str(arguments.observer_client_id), str(arguments.runtime_client_id)
                 )
             output = seed_database(
                 engine, size=arguments.size, seed=arguments.seed, rows=arguments.rows
@@ -276,7 +276,7 @@ def main() -> int:
                 {
                     "status": "bootstrapped",
                     "migrations_applied": versions,
-                    "observer_configured": arguments.observer_object_id is not None,
+                    "observer_configured": arguments.observer_client_id is not None,
                 }
             )
         else:
@@ -296,7 +296,7 @@ def main() -> int:
                     else failure.code,
                     "action": arguments.command,
                     "hint": (
-                        "Verify SQL settings, RUNTIME_OBJECT_ID, optional OBSERVER_OBJECT_ID, "
+                        "Verify SQL settings, RUNTIME_CLIENT_ID, optional OBSERVER_CLIENT_ID, "
                         "distinct least-privilege identities, Entra permissions, "
                         "migration checksums, "
                         "seed bounds, synthetic marker, destructive-reset confirmations "

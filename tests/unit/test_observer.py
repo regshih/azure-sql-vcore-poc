@@ -113,7 +113,7 @@ def mock_bootstrap(monkeypatch: pytest.MonkeyPatch) -> tuple[MagicMock, list[str
     credential = MagicMock()
     engine = MagicMock()
     order: list[str] = []
-    monkeypatch.setenv("RUNTIME_OBJECT_ID", str(RUNTIME))
+    monkeypatch.setenv("RUNTIME_CLIENT_ID", str(RUNTIME))
     monkeypatch.setattr(manage, "credential_for", lambda settings: credential)
     monkeypatch.setattr(manage, "connection_creator", lambda *args: MagicMock())
     monkeypatch.setattr(manage, "make_engine", lambda *args: engine)
@@ -132,10 +132,10 @@ def test_bootstrap_observer_env_fallback_and_explicit_override(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], explicit: bool
 ) -> None:
     engine, order = mock_bootstrap(monkeypatch)
-    monkeypatch.setenv("OBSERVER_OBJECT_ID", str(ADMIN) if explicit else str(OBSERVER))
+    monkeypatch.setenv("OBSERVER_CLIENT_ID", str(ADMIN) if explicit else str(OBSERVER))
     arguments = ["manage", "bootstrap"]
     if explicit:
-        arguments.extend(["--observer-object-id", str(OBSERVER)])
+        arguments.extend(["--observer-client-id", str(OBSERVER)])
     monkeypatch.setattr("sys.argv", arguments)
 
     def grant(database, observer_id, runtime_id):
@@ -156,8 +156,8 @@ def test_bootstrap_observer_env_fallback_and_explicit_override(
 def test_bootstrap_invalid_or_colliding_observer_fails_before_credentials(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str
 ) -> None:
-    monkeypatch.setenv("RUNTIME_OBJECT_ID", str(RUNTIME))
-    monkeypatch.setenv("OBSERVER_OBJECT_ID", value)
+    monkeypatch.setenv("RUNTIME_CLIENT_ID", str(RUNTIME))
+    monkeypatch.setenv("OBSERVER_CLIENT_ID", value)
     monkeypatch.setattr("sys.argv", ["manage", "bootstrap"])
     credential = MagicMock()
     monkeypatch.setattr(manage, "credential_for", credential)
@@ -172,7 +172,7 @@ def test_bootstrap_observer_permission_error_is_sanitized_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _, order = mock_bootstrap(monkeypatch)
-    monkeypatch.setenv("OBSERVER_OBJECT_ID", str(OBSERVER))
+    monkeypatch.setenv("OBSERVER_CLIENT_ID", str(OBSERVER))
     monkeypatch.setattr("sys.argv", ["manage", "bootstrap"])
     monkeypatch.setattr(
         manage,
@@ -187,3 +187,10 @@ def test_bootstrap_observer_permission_error_is_sanitized_failure(
     assert payload["status"] == "failed"
     assert payload["category"] == "database_nontransient_error"
     assert payload["code"] == "42000"
+
+
+@pytest.mark.parametrize("flag", ["--runtime-object-id", "--observer-object-id"])
+def test_legacy_object_id_flags_are_not_silently_reinterpreted(flag: str) -> None:
+    with pytest.raises(SystemExit) as error:
+        manage.parser().parse_args(["bootstrap", flag, str(RUNTIME)])
+    assert error.value.code == 2

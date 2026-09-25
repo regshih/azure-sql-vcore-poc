@@ -239,10 +239,9 @@ module jobs './modules/container-app-jobs.bicep' = if (deployApplication) {
     acrLoginServer: registry.outputs.loginServer
     bootstrapIdentityId: identities.outputs.bootstrapIdentityId
     bootstrapClientId: identities.outputs.bootstrapIdentityClientId
-    runtimePrincipalId: identities.outputs.runtimeIdentityPrincipalId
+    runtimeClientId: identities.outputs.runtimeIdentityClientId
     runnerIdentityId: identities.outputs.runnerIdentityId
     runnerClientId: identities.outputs.runnerIdentityClientId
-    runnerPrincipalId: identities.outputs.runnerIdentityPrincipalId
     sqlServerHost: primary.outputs.sqlServerHost
     sqlDatabaseName: primary.outputs.sqlDatabaseName
     sqlResourceId: primary.outputs.sqlDatabaseId

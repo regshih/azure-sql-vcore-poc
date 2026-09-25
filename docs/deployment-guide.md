@@ -267,7 +267,7 @@ $env:REPOSITORY_BACKEND = "sql"
 $env:SQL_SERVER = "<sql-server-hostname>"
 $env:SQL_DATABASE = "<database-name>"
 .\.venv\Scripts\python.exe -m src.database.manage migrate
-.\.venv\Scripts\python.exe -m src.database.manage bootstrap --runtime-object-id <runtime-principal-id>
+.\.venv\Scripts\python.exe -m src.database.manage bootstrap --runtime-client-id <runtime-client-id> --observer-client-id <runner-client-id>
 .\.venv\Scripts\python.exe -m src.database.manage seed --size small --seed 42
 .\.venv\Scripts\python.exe -m src.api
 ```
@@ -277,6 +277,26 @@ The local API entry point binds to loopback by default. Production uses the
 controlled comparisons. Do not run a development server as the deployed service.
 The seed generator uses synthetic records; verify final storage remains below
 the 5-GB cap before selecting a larger dataset.
+
+For managed identities, contained SQL users created with `SID` and `TYPE=E`
+must use the **application/client ID**, not the service principal object ID.
+The bootstrap job supplies `RUNTIME_CLIENT_ID` and `OBSERVER_CLIENT_ID`;
+Azure RBAC and the SQL server Entra administrator still use object IDs.
+See Microsoft's [CREATE USER identifier guidance](https://learn.microsoft.com/sql/t-sql/statements/create-user-transact-sql#arguments).
+Legacy `--runtime-object-id` / `--observer-object-id` arguments are not accepted.
+Existing users with mismatched SIDs are deliberately rejected, never silently
+remapped. A SQL administrator must review their permissions and ownership before
+repairing only those contained users and reapplying the least-privilege grants;
+do not reset the dataset to repair an identity mapping.
+
+The Container Apps module adds the four documented workload-profile platform
+CIDRs to `INTERNAL_ALLOWED_NETWORKS`, alongside the local/private defaults.
+This permits authenticated private runner calls from platform pod addresses,
+which are not RFC1918. It does not permit arbitrary shared-address space,
+remove the bearer-token requirement, or change public ingress.
+Local defaults remain unchanged. Review the
+[reserved platform ranges](https://learn.microsoft.com/azure/container-apps/custom-virtual-networks#restrictions-for-subnet-address-ranges)
+if deploying on a different environment type.
 
 ### Optional local control-token setup
 

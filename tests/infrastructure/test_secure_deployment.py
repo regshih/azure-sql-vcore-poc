@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import secrets
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
+
+from src.api.app import create_app
+from src.configuration.settings import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -128,6 +133,66 @@ def test_blob_security_and_managed_identity_client_ids(compiled: dict[str, Any])
     identities = module(compiled, "identities")["properties"]["template"]["outputs"]
     assert identities["runtimeIdentityClientId"]["value"].endswith(".clientId]")
     assert identities["runtimeIdentityPrincipalId"]["value"].endswith(".principalId]")
+
+
+def test_sql_bootstrap_receives_client_ids_not_rbac_object_ids(compiled: dict[str, Any]) -> None:
+    jobs = module(compiled, "jobs")
+    parameters = jobs["properties"]["parameters"]
+    assert parameters["runtimeClientId"]["value"].endswith(
+        ".outputs.runtimeIdentityClientId.value]"
+    )
+    assert parameters["runnerClientId"]["value"].endswith(".outputs.runnerIdentityClientId.value]")
+    bootstrap = resources(compiled, "jobs")[0]
+    environment = {
+        item["name"]: item.get("value")
+        for item in bootstrap["properties"]["template"]["containers"][0]["env"]
+    }
+    assert environment["RUNTIME_CLIENT_ID"] == "[parameters('runtimeClientId')]"
+    assert environment["OBSERVER_CLIENT_ID"] == "[parameters('runnerClientId')]"
+    assert "RUNTIME_OBJECT_ID" not in environment
+    assert "OBSERVER_OBJECT_ID" not in environment
+
+
+@pytest.mark.parametrize(
+    ("address", "has_token", "allowed"),
+    [
+        ((100, 100, 0, 1), True, True),
+        ((100, 100, 128, 1), True, True),
+        ((100, 100, 160, 1), True, True),
+        ((100, 100, 192, 1), True, True),
+        ((100, 100, 223, 255), True, True),
+        ((100, 100, 224, 0), True, False),
+        ((100, 64, 0, 1), True, False),
+        ((203, 0, 113, 1), True, False),
+        ((100, 100, 192, 1), False, False),
+    ],
+)
+def test_deployed_internal_networks_require_platform_range_and_token(
+    compiled: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    address: tuple[int, int, int, int],
+    has_token: bool,
+    allowed: bool,
+) -> None:
+    template = module(compiled, "api")["properties"]["template"]
+    networks = template["variables"]["internalAllowedNetworks"]
+    assert set(networks) == set(Settings().internal_allowed_networks) | {
+        f"100.100.{octet}.0/{prefix}"
+        for octet, prefix in ((0, 17), (128, 19), (160, 19), (192, 19))
+    }
+    environment = resources(compiled, "api")[0]["properties"]["template"]["containers"][0]["env"]
+    assert (
+        "createObject('name','INTERNAL_ALLOWED_NETWORKS',"
+        "'value',string(variables('internalAllowedNetworks')))"
+    ) in environment.replace(" ", "")
+    monkeypatch.setenv("INTERNAL_ALLOWED_NETWORKS", json.dumps(networks))
+    token = secrets.token_urlsafe(32)
+    settings = Settings(internal_api_token=token)
+    headers = {"Authorization": f"Bearer {token if has_token else 'invalid'}"}
+    headers["X-Forwarded-For"] = "127.0.0.1"
+    with TestClient(create_app(settings), client=(".".join(map(str, address)), 4000)) as client:
+        response = client.get("/internal/metadata", headers=headers)
+        assert response.status_code == (200 if allowed else 403)
 
 
 def test_optional_dr_is_real_and_disabled_by_default(compiled: dict[str, Any]) -> None:

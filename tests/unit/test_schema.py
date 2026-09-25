@@ -113,8 +113,8 @@ def test_bootstrap_environment_fallback_and_operation_order(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     runtime_id = UUID(int=42)
-    monkeypatch.delenv("OBSERVER_OBJECT_ID", raising=False)
-    monkeypatch.setenv("RUNTIME_OBJECT_ID", str(runtime_id))
+    monkeypatch.delenv("OBSERVER_CLIENT_ID", raising=False)
+    monkeypatch.setenv("RUNTIME_CLIENT_ID", str(runtime_id))
     monkeypatch.setattr("sys.argv", ["manage", "bootstrap"])
     credential, engine = MagicMock(), MagicMock()
     monkeypatch.setattr(manage, "credential_for", lambda settings: credential)
@@ -154,7 +154,7 @@ def test_bootstrap_environment_fallback_and_operation_order(
 def test_bootstrap_invalid_environment_id_fails_before_connecting(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("RUNTIME_OBJECT_ID", "DO_NOT_ECHO_INVALID_VALUE")
+    monkeypatch.setenv("RUNTIME_CLIENT_ID", "DO_NOT_ECHO_INVALID_VALUE")
     monkeypatch.setattr("sys.argv", ["manage", "bootstrap"])
     credential_factory = MagicMock()
     monkeypatch.setattr(manage, "credential_for", credential_factory)
